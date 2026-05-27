@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}{% if group %}编辑{% else %}创建{% endif %}课程分组 - autoWeChat{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-md-6 col-lg-5">
+        <h4 class="mb-3">{% if group %}编辑课程分组{% else %}创建课程分组{% endif %}</h4>
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">分组名称</label>
+                        <input type="text" class="form-control" id="name" name="name" required
+                               value="{{ group.name if group else '' }}"
+                               placeholder="例如：周六上午 8:40-10:10">
+                        <div class="form-text">建议包含时间和日期，方便识别</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="day_of_week" class="form-label">上课日</label>
+                        <select class="form-select" id="day_of_week" name="day_of_week" required>
+                            <option value="">请选择</option>
+                            {% for d in weekdays %}
+                            <option value="{{ d }}" {% if group and group.day_of_week == d %}selected{% endif %}>{{ d }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label for="start_time" class="form-label">开始时间</label>
+                            <input type="time" class="form-control" id="start_time" name="start_time" required
+                                   value="{{ group.start_time if group else '' }}">
+                        </div>
+                        <div class="col">
+                            <label for="end_time" class="form-label">结束时间</label>
+                            <input type="time" class="form-control" id="end_time" name="end_time" required
+                                   value="{{ group.end_time if group else '' }}">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        {% if group %}保存修改{% else %}创建分组{% endif %}
+                    </button>
+                    <a href="{{ url_for('courses.list') }}" class="btn btn-outline-secondary">返回</a>
+                </form>
+            </div>
+        </div>
+
+        {% if not group %}
+        <div class="alert alert-info mt-3 small">
+            <i class="bi bi-info-circle"></i> 创建分组后将自动生成未来8周的课程
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

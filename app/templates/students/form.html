@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{% if student %}编辑学员{% else %}添加学员{% endif %} - autoWeChat{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-md-6 col-lg-5">
+        <h4 class="mb-3">{% if student %}编辑学员{% else %}添加学员{% endif %}</h4>
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">学员姓名 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" name="name" required
+                               value="{{ student.name if student else '' }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="parent_wechat" class="form-label">家长微信名</label>
+                        <input type="text" class="form-control" id="parent_wechat" name="parent_wechat"
+                               value="{{ student.parent_wechat if student else '' }}"
+                               placeholder="微信通讯录中的名称，用于搜索发送">
+                        <div class="form-text">发送通知时通过此名称搜索微信联系人</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="course_group_id" class="form-label">课程分组</label>
+                        <select class="form-select" id="course_group_id" name="course_group_id">
+                            <option value="">-- 未分组 --</option>
+                            {% for g in groups %}
+                            <option value="{{ g.id }}"
+                                {% if student and student.course_group_id == g.id %}selected{% endif %}>
+                                {{ g.name }} ({{ g.time_display }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="phone" class="form-label">联系电话</label>
+                        <input type="text" class="form-control" id="phone" name="phone"
+                               value="{{ student.phone if student else '' }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">备注</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="2">{{ student.notes if student else '' }}</textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        {% if student %}保存修改{% else %}添加学员{% endif %}
+                    </button>
+                    <a href="{{ url_for('students.list') }}" class="btn btn-outline-secondary">返回</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}个人设置 - autoWeChat{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-md-6 col-lg-5">
+        <h4 class="mb-3">个人设置</h4>
+
+        <form method="POST">
+            <div class="card shadow-sm mb-3">
+                <div class="card-header"><i class="bi bi-person"></i> 基本设置</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="display_name" class="form-label">显示名称</label>
+                        <input type="text" class="form-control" id="display_name" name="display_name"
+                               value="{{ current_user.display_name or '' }}" placeholder="留空使用用户名">
+                    </div>
+                    <hr>
+                    <p class="text-muted small">如需修改密码请填写以下字段，不修改则留空</p>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">新密码</label>
+                        <input type="password" class="form-control" id="password" name="password"
+                               minlength="6" placeholder="至少6位">
+                    </div>
+                    <div class="mb-3">
+                        <label for="password2" class="form-label">确认新密码</label>
+                        <input type="password" class="form-control" id="password2" name="password2"
+                               minlength="6" placeholder="再次输入新密码">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-header"><i class="bi bi-sliders"></i> 发送设置</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="wechat_delay_ms" class="form-label">发送间隔（毫秒）</label>
+                        <input type="number" class="form-control" id="wechat_delay_ms" name="wechat_delay_ms"
+                               value="{{ settings.wechat_delay_ms if settings else 2500 }}"
+                               min="1000" max="10000" step="100">
+                        <div class="form-text">每次发送消息之间的等待时间，建议 2000-3000 毫秒</div>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100">保存设置</button>
+            <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary w-100 mt-2">返回首页</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

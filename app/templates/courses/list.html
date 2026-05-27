@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}课程管理 - autoWeChat{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4><i class="bi bi-calendar3"></i> 课程分组</h4>
+    <a href="{{ url_for('courses.create') }}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> 创建分组
+    </a>
+</div>
+
+{% if groups %}
+<div class="row">
+    {% for g in groups %}
+    <div class="col-md-6 col-lg-4 mb-3">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">{{ g.name }}</h5>
+                <p class="card-text text-muted">
+                    <i class="bi bi-clock"></i> {{ g.time_display }}
+                </p>
+                <p class="card-text">
+                    <span class="badge bg-info">{{ g.student_count }} 名学员</span>
+                    <span class="badge bg-light text-dark">{{ g.courses.count() }} 节课</span>
+                </p>
+                <div class="btn-group">
+                    <a href="{{ url_for('courses.calendar', id=g.id) }}" class="btn btn-sm btn-outline-info">
+                        <i class="bi bi-calendar-week"></i> 课程表
+                    </a>
+                    <a href="{{ url_for('courses.edit', id=g.id) }}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-pencil"></i> 编辑
+                    </a>
+                    <form method="POST" action="{{ url_for('courses.delete', id=g.id) }}"
+                          class="d-inline" onsubmit="return confirmDelete('确认删除课程分组 {{ g.name }}？相关课程和学员关联将被清除。');">
+                        <button class="btn btn-sm btn-outline-danger">
+                            <i class="bi bi-trash"></i> 删除
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5">
+    <i class="bi bi-calendar3" style="font-size: 3rem; color: #ccc;"></i>
+    <p class="text-muted mt-3">暂无课程分组，点击上方按钮创建</p>
+</div>
+{% endif %}
+{% endblock %}

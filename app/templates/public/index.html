@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}autoWeChat - 教培通知助手{% endblock %}
+{% block content %}
+<div class="container py-4">
+    {# Hero Section #}
+    <div class="text-center mb-5">
+        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="autoWeChat" class="hero-logo mb-3">
+        <h1 class="fw-bold">autoWeChat</h1>
+        <p class="lead text-muted">教培机构微信通知助手</p>
+        <p class="text-muted">批量通过微信向家长发送上课通知、课程汇报，让沟通更高效</p>
+        <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg mt-2">
+            <i class="bi bi-box-arrow-in-right"></i> 开始使用
+        </a>
+    </div>
+
+    {# Feature Cards #}
+    <div class="row g-4 mb-5">
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm text-center">
+                <div class="card-body">
+                    <i class="bi bi-calendar3" style="font-size: 2.5rem; color: #0d6efd;"></i>
+                    <h5 class="card-title mt-2">课程管理</h5>
+                    <p class="card-text text-muted">创建课程时间分组，自动生成课表，轻松管理每周课程安排</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm text-center">
+                <div class="card-body">
+                    <i class="bi bi-people" style="font-size: 2.5rem; color: #0dcaf0;"></i>
+                    <h5 class="card-title mt-2">学员管理</h5>
+                    <p class="card-text text-muted">添加学员信息，按课程分组管理，支持筛选排序，快速查找</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm text-center">
+                <div class="card-body">
+                    <i class="bi bi-chat-square-text" style="font-size: 2.5rem; color: #198754;"></i>
+                    <h5 class="card-title mt-2">智能通知</h5>
+                    <p class="card-text text-muted">自定义通知模板，AI自动生成课程内容，一键批量发送到微信</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# How It Works #}
+    <div class="mb-5">
+        <h3 class="text-center mb-4">使用流程</h3>
+        <div class="row g-3">
+            <div class="col-md-3 text-center">
+                <div class="display-6 text-primary">1</div>
+                <h6>创建课程分组</h6>
+                <p class="text-muted small">设置上课时间和日期，自动生成课程表</p>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="display-6 text-primary">2</div>
+                <h6>添加学员信息</h6>
+                <p class="text-muted small">录入学员姓名和家长微信，分配到对应分组</p>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="display-6 text-primary">3</div>
+                <h6>创建通知模板</h6>
+                <p class="text-muted small">使用变量占位和AI生成，快速创建个性化通知</p>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="display-6 text-primary">4</div>
+                <h6>一键批量发送</h6>
+                <p class="text-muted small">选择学员和模板，自动通过微信发送给家长</p>
+            </div>
+        </div>
+    </div>
+
+    {# Footer #}
+    <hr>
+    <div class="text-center text-muted small">
+        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="autoWeChat" style="height: 24px;" class="rounded me-1">
+        autoWeChat - 让教培沟通更简单
+    </div>
+</div>
+{% endblock %}

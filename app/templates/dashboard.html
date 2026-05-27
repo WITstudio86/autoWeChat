@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}首页 - autoWeChat{% endblock %}
+{% block content %}
+<h4 class="mb-3">欢迎，{{ current_user.display_name or current_user.username }}</h4>
+
+{# Stats Cards #}
+<div class="row mb-4">
+    <div class="col-md-3 col-6 mb-2">
+        <div class="card stat-card border-primary">
+            <div class="card-body text-center">
+                <h2 class="text-primary mb-0">{{ student_count }}</h2>
+                <small class="text-muted">学员总数</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6 mb-2">
+        <div class="card stat-card border-info">
+            <div class="card-body text-center">
+                <h2 class="text-info mb-0">{{ group_count }}</h2>
+                <small class="text-muted">课程分组</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6 mb-2">
+        <div class="card stat-card border-success">
+            <div class="card-body text-center">
+                <h2 class="text-success mb-0">{{ template_count }}</h2>
+                <small class="text-muted">通知模板</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6 mb-2">
+        <div class="card stat-card border-warning">
+            <div class="card-body text-center">
+                <h2 class="text-warning mb-0">{{ monthly_sends }}</h2>
+                <small class="text-muted">本月发送</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    {# Today's Courses #}
+    <div class="col-md-6 mb-3">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-calendar-check"></i> 今日课程</span>
+            </div>
+            <div class="card-body">
+                {% if today_courses %}
+                <ul class="list-group list-group-flush">
+                    {% for c in today_courses %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        {{ c.group.name if c.group else '-' }}
+                        <span class="badge {{ c.status_badge }}">
+                            {% if c.status == 'upcoming' %}待上{% elif c.status == 'completed' %}已完成{% else %}已取消{% endif %}
+                        </span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted text-center mb-0">今日无课程</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {# Upcoming Courses #}
+    <div class="col-md-6 mb-3">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <span><i class="bi bi-calendar-week"></i> 近期课程</span>
+            </div>
+            <div class="card-body">
+                {% if upcoming_courses %}
+                <table class="table table-sm mb-0">
+                    {% for c in upcoming_courses %}
+                    <tr>
+                        <td>{{ c.date.strftime('%m/%d') }}</td>
+                        <td>{{ c.weekday_display }}</td>
+                        <td>{{ c.group.name if c.group else '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+                {% else %}
+                <p class="text-muted text-center mb-0">暂无近期课程</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {# Recent Sends #}
+    <div class="col-md-6 mb-3">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-clock-history"></i> 最近发送</span>
+                <a href="{{ url_for('send.history') }}" class="btn btn-sm btn-outline-primary">查看全部</a>
+            </div>
+            <div class="card-body">
+                {% if recent_sends %}
+                <table class="table table-sm mb-0">
+                    {% for log in recent_sends %}
+                    <tr>
+                        <td class="small">{{ log.sent_at.strftime('%m/%d %H:%M') if log.sent_at else '-' }}</td>
+                        <td>{{ log.student.name if log.student else '-' }}</td>
+                        <td>
+                            {% if log.status == 'success' %}
+                            <span class="badge bg-success">成功</span>
+                            {% else %}
+                            <span class="badge bg-danger">失败</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </table>
+                {% else %}
+                <p class="text-muted text-center mb-0">暂无发送记录</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {# Quick Actions #}
+    <div class="col-md-6 mb-3">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <span><i class="bi bi-lightning"></i> 快捷操作</span>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('send.index') }}" class="btn btn-primary">
+                        <i class="bi bi-send"></i> 批量发送通知
+                    </a>
+                    <a href="{{ url_for('students.create') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-person-plus"></i> 添加学员
+                    </a>
+                    <a href="{{ url_for('courses.create') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-calendar-plus"></i> 创建课程分组
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

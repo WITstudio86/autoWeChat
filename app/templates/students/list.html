@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}学员管理 - autoWeChat{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4><i class="bi bi-people"></i> 学员管理</h4>
+    <a href="{{ url_for('students.create') }}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> 添加学员
+    </a>
+</div>
+
+{# Filters #}
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <form method="GET" class="row g-2 align-items-end" id="filterForm"
+              hx-get="{{ url_for('students.list') }}"
+              hx-target="#studentTableBody"
+              hx-trigger="change from:select, input delay:300ms from:#filterInput">
+            <div class="col-auto">
+                <label for="group_id" class="form-label small">课程分组</label>
+                <select class="form-select form-select-sm" name="group_id" id="group_id">
+                    <option value="">全部学员</option>
+                    <option value="-1" {% if current_group_id == -1 %}selected{% endif %}>未分组</option>
+                    {% for g in groups %}
+                    <option value="{{ g.id }}" {% if current_group_id == g.id %}selected{% endif %}>
+                        {{ g.name }} ({{ g.student_count }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <label for="sort" class="form-label small">排序方式</label>
+                <select class="form-select form-select-sm" name="sort" id="sort">
+                    <option value="name" {% if current_sort == 'name' %}selected{% endif %}>按姓名排序</option>
+                    <option value="time" {% if current_sort == 'time' %}selected{% endif %}>按上课时间排序</option>
+                </select>
+            </div>
+            <div class="col-auto flex-grow-1">
+                <label for="filterInput" class="form-label small">搜索</label>
+                <input type="text" class="form-control form-control-sm" id="filterInput"
+                       name="filter" value="{{ current_filter }}" placeholder="输入学员姓名搜索...">
+            </div>
+        </form>
+    </div>
+</div>
+
+{# Student Table #}
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div id="studentTable">
+            {% include "students/_table.html" %}
+        </div>
+    </div>
+</div>
+
+{# Move Student Modal #}
+<div class="modal fade" id="moveModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <form id="moveForm" method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title">移动学员</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted" id="moveStudentName"></p>
+                    <select class="form-select" name="course_group_id">
+                        <option value="">未分组</option>
+                        {% for g in groups %}
+                        <option value="{{ g.id }}">{{ g.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">确认移动</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function moveStudent(id, name, currentGroupId) {
+    document.getElementById('moveForm').action = '/students/' + id + '/move';
+    document.getElementById('moveStudentName').textContent = '将 ' + name + ' 移动到：';
+    document.getElementById('moveForm').querySelector('select').value = currentGroupId || '';
+    new bootstrap.Modal(document.getElementById('moveModal')).show();
+}
+</script>
+{% endblock %}

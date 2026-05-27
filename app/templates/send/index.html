@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+{% block title %}批量发送 - autoWeChat{% endblock %}
+{% block content %}
+<h4 class="mb-1"><i class="bi bi-send"></i> 批量发送通知</h4>
+<p class="text-muted small mb-3">选择模板和学员，填写概要后 AI 自动扩展生成内容。发送期间请勿操作键盘和鼠标。</p>
+
+{% if not templates or not students %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle"></i>
+    {% if not templates %}请先<a href="{{ url_for('templates.create') }}" class="alert-link">创建通知模板</a>。{% endif %}
+    {% if not students %}请先<a href="{{ url_for('students.create') }}" class="alert-link">添加学员</a>。{% endif %}
+</div>
+{% else %}
+<div class="row">
+    {# Left: Template + Description #}
+    <div class="col-md-3">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header"><i class="bi bi-chat-square-text"></i> 选择模板</div>
+            <div class="card-body">
+                <select class="form-select" id="templateSelect" onchange="onTemplateChange()">
+                    <option value="">-- 选择模板 --</option>
+                    {% for t in templates %}
+                    <option value="{{ t.id }}"
+                            data-content="{{ t.content }}"
+                            data-has-autocontent="{{ 'true' if '{autocontent}' in t.content else 'false' }}"
+                            data-has-performance="{{ 'true' if '{performance}' in t.content else 'false' }}">
+                        {{ t.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <div class="mt-2 small text-muted" id="templatePreview"></div>
+            </div>
+        </div>
+
+        {# Course content description (shown when template has {autocontent}) #}
+        <div class="card shadow-sm mb-3 d-none" id="autocontentCard">
+            <div class="card-header">
+                <i class="bi bi-pencil"></i> 课程内容概要
+                <span class="badge bg-info ms-1">{autocontent}</span>
+            </div>
+            <div class="card-body">
+                <textarea class="form-control form-control-sm" id="autocontentDescription"
+                          rows="3" placeholder="输入本节课内容概要，AI将扩展成~200字的课程汇报。&#10;例如：学习了分数的加减法，重点讲解了通分和约分..."></textarea>
+                <div class="form-text small">对全部选中学员生效，AI 在发送时自动扩展</div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header"><i class="bi bi-calendar-check"></i> 关联课程（可选）</div>
+            <div class="card-body">
+                <select class="form-select" id="courseSelect" onchange="updatePreview()">
+                    <option value="">-- 不关联 --</option>
+                    {% for g in groups %}
+                    <optgroup label="{{ g.name }}">
+                        {% for c in g.courses %}
+                        {% if c.status == 'upcoming' %}
+                        <option value="{{ c.id }}" data-time="{{ g.time_display }}"
+                                data-date="{{ c.date.strftime('%Y-%m-%d') }}"
+                                data-weekday="{{ c.weekday_display }}">
+                            {{ c.date.strftime('%m/%d') }} {{ c.weekday_display }}
+                        </option>
+                        {% endif %}
+                        {% endfor %}
+                    </optgroup>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    {# Center: Student Selection + Performance Notes #}
+    <div class="col-md-5">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-people"></i> 选择学员</span>
+                <span class="badge bg-primary" id="selectedCount">0</span>
+            </div>
+            <div class="card-body p-2" style="max-height: 500px; overflow-y: auto;" id="studentList">
+                {% for s in students %}
+                <div class="student-row border rounded p-2 mb-1" id="studentRow{{ s.id }}">
+                    <div class="form-check">
+                        <input class="form-check-input student-check" type="checkbox"
+                               value="{{ s.id }}" id="s{{ s.id }}"
+                               data-name="{{ s.name }}"
+                               data-group="{{ s.course_group.time_display if s.course_group else '' }}">
+                        <label class="form-check-label" for="s{{ s.id }}">
+                            <strong>{{ s.name }}</strong>
+                            {% if s.course_group %}
+                            <small class="text-muted">({{ s.course_group.name }})</small>
+                            {% else %}
+                            <small class="text-warning">(未分组)</small>
+                            {% endif %}
+                        </label>
+                    </div>
+                    {# Performance note input (shown when template has {performance}) #}
+                    <div class="performance-input mt-1 ps-4 d-none" id="perfInput{{ s.id }}">
+                        <input type="text" class="form-control form-control-sm"
+                               id="performance_{{ s.id }}" name="performance_{{ s.id }}"
+                               placeholder="输入 {{ s.name }} 的表现概要（AI 扩展）">
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="card-footer">
+                <button class="btn btn-sm btn-outline-secondary" onclick="toggleAll()">全选/取消</button>
+                <span class="ms-2 small text-muted" id="countDisplay">已选 0 人</span>
+            </div>
+        </div>
+    </div>
+
+    {# Right: Preview + Send #}
+    <div class="col-md-4">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header"><i class="bi bi-eye"></i> 消息预览</div>
+            <div class="card-body">
+                <div class="live-preview small" id="sendPreview" style="min-height: 150px;">
+                    <span class="text-muted">选择模板后显示预览...</span>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn btn-primary w-100 btn-lg" id="sendBtn" onclick="startSend()" disabled>
+            <i class="bi bi-send"></i> 发送通知
+        </button>
+        <div class="alert alert-warning small mt-2">
+            <i class="bi bi-exclamation-triangle"></i> 发送期间请勿操作键盘鼠标，微信窗口会被自动控制。
+        </div>
+
+        {# Progress Area #}
+        <div id="sendProgress" class="mt-3 d-none">
+            <div class="card shadow-sm">
+                <div class="card-header"><i class="bi bi-arrow-repeat"></i> 发送进度</div>
+                <div class="card-body">
+                    <div class="progress mb-2">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated"
+                             id="progressBar" style="width: 0%"></div>
+                    </div>
+                    <p class="small mb-0">
+                        <span id="progressText">准备中...</span>
+                        <span class="text-muted" id="progressCount"></span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let jobId = null;
+let pollTimer = null;
+let currentHasAutocontent = false;
+let currentHasPerformance = false;
+
+document.querySelectorAll('.student-check').forEach(cb => {
+    cb.addEventListener('change', () => {
+        updateSelectedCount();
+        updatePreview();
+        updatePerfInputs();
+    });
+});
+
+function onTemplateChange() {
+    const opt = document.getElementById('templateSelect').selectedOptions[0];
+    currentHasAutocontent = opt ? opt.dataset.hasAutocontent === 'true' : false;
+    currentHasPerformance = opt ? opt.dataset.hasPerformance === 'true' : false;
+
+    document.getElementById('autocontentCard').classList.toggle('d-none', !currentHasAutocontent);
+    updatePerfInputs();
+    updatePreview();
+    updateSelectedCount();
+}
+
+function updatePerfInputs() {
+    document.querySelectorAll('.performance-input').forEach(el => {
+        if (currentHasPerformance) {
+            const cb = el.parentElement.querySelector('.student-check');
+            el.classList.toggle('d-none', !cb || !cb.checked);
+        } else {
+            el.classList.add('d-none');
+        }
+    });
+}
+
+function toggleAll() {
+    const checks = document.querySelectorAll('.student-check');
+    const allChecked = [...checks].every(c => c.checked);
+    checks.forEach(c => { c.checked = !allChecked; });
+    updateSelectedCount();
+    updatePreview();
+    updatePerfInputs();
+}
+
+function updateSelectedCount() {
+    const count = document.querySelectorAll('.student-check:checked').length;
+    document.getElementById('selectedCount').textContent = count;
+    document.getElementById('countDisplay').textContent = '已选 ' + count + ' 人';
+    const hasTemplate = !!document.getElementById('templateSelect').value;
+    document.getElementById('sendBtn').disabled = (count === 0 || !hasTemplate);
+}
+
+function updatePreview() {
+    const templateOpt = document.getElementById('templateSelect').selectedOptions[0];
+    const courseOpt = document.getElementById('courseSelect').selectedOptions[0];
+    const firstStudent = document.querySelector('.student-check:checked');
+
+    const hasTemplate = !!templateOpt;
+    document.getElementById('sendBtn').disabled = !(
+        hasTemplate && document.querySelectorAll('.student-check:checked').length > 0
+    );
+
+    const preview = document.getElementById('sendPreview');
+    if (!templateOpt) {
+        preview.innerHTML = '<span class="text-muted">选择模板后显示预览...</span>';
+        return;
+    }
+
+    let content = templateOpt.dataset.content;
+    const studentName = firstStudent ? firstStudent.dataset.name : '张三';
+    const courseTime = courseOpt ? (courseOpt.dataset.time || '') : '周六 8:40-10:10';
+    const courseDate = courseOpt ? (courseOpt.dataset.date || '') : '2026-05-30';
+    const weekday = courseOpt ? (courseOpt.dataset.weekday || '') : '周六';
+    const teacherName = '{{ current_user.display_name or current_user.username }}';
+
+    content = content.replace(/\{name\}/g, '<mark>' + studentName + '</mark>');
+    content = content.replace(/\{class\}/g, courseTime);
+    content = content.replace(/\{date\}/g, courseDate);
+    content = content.replace(/\{weekday\}/g, weekday);
+    content = content.replace(/\{teacher\}/g, teacherName);
+    content = content.replace(/\{autocontent\}/g, '<span class="text-info">[发送时由AI根据课程概要生成]</span>');
+    content = content.replace(/\{performance\}/g, '<span class="text-success">[发送时由AI根据表现概要生成]</span>');
+
+    preview.innerHTML = content.replace(/\n/g, '<br>');
+}
+
+async function safeJson(resp) {
+    const text = await resp.text();
+    try {
+        return JSON.parse(text);
+    } catch {
+        // 如果返回的是 HTML（如登录页重定向），尝试重新登录
+        if (text.includes('<!doctype') || text.includes('<html')) {
+            alert('会话已过期，请重新登录');
+            window.location.href = '{{ url_for("auth.login") }}';
+            return null;
+        }
+        throw new Error('服务器返回异常: ' + text.substring(0, 200));
+    }
+}
+
+async function startSend() {
+    const templateId = document.getElementById('templateSelect').value;
+    const courseId = document.getElementById('courseSelect').value;
+    const studentIds = [...document.querySelectorAll('.student-check:checked')].map(cb => cb.value);
+
+    document.getElementById('sendBtn').disabled = true;
+    document.getElementById('sendBtn').innerHTML = '<span class="spinner-border spinner-border-sm"></span> 发送中...';
+    document.getElementById('sendProgress').classList.remove('d-none');
+
+    const formData = new FormData();
+    formData.append('template_id', templateId);
+    if (courseId) formData.append('course_id', courseId);
+    studentIds.forEach(id => formData.append('student_ids', id));
+
+    if (currentHasAutocontent) {
+        formData.append('autocontent_description', document.getElementById('autocontentDescription').value);
+    }
+    if (currentHasPerformance) {
+        studentIds.forEach(id => {
+            const input = document.getElementById('performance_' + id);
+            if (input && input.value.trim()) {
+                formData.append('performance_' + id, input.value.trim());
+            }
+        });
+    }
+
+    try {
+        const resp = await fetch('{{ url_for("send.start") }}', { method: 'POST', body: formData, credentials: 'same-origin' });
+        const data = await safeJson(resp);
+        if (!data) return;
+        if (resp.ok) {
+            jobId = data.job_id;
+            pollProgress();
+        } else {
+            alert('启动失败: ' + (data.error || '未知错误'));
+            resetSendBtn();
+        }
+    } catch (e) {
+        alert('网络错误: ' + e.message);
+        resetSendBtn();
+    }
+}
+
+function pollProgress() {
+    if (!jobId) return;
+    fetch('/send/status/' + jobId, { credentials: 'same-origin' })
+        .then(r => safeJson(r))
+        .then(data => {
+            if (!data) return;
+            const pct = data.total > 0 ? Math.round(data.completed / data.total * 100) : 0;
+            document.getElementById('progressBar').style.width = pct + '%';
+            document.getElementById('progressText').textContent = data.current ? '正在发送: ' + data.current : '';
+            document.getElementById('progressCount').textContent =
+                '(' + data.completed + '/' + data.total + ', 失败: ' + data.failed + ')';
+
+            if (data.status === 'done') {
+                document.getElementById('sendBtn').innerHTML = '<i class="bi bi-check-circle"></i> 发送完成';
+                document.getElementById('sendBtn').classList.remove('btn-primary');
+                document.getElementById('sendBtn').classList.add('btn-success');
+                document.getElementById('progressBar').classList.remove('progress-bar-animated');
+                document.getElementById('progressText').textContent = '发送完成！';
+                return;
+            }
+            pollTimer = setTimeout(pollProgress, 2000);
+        });
+}
+
+function resetSendBtn() {
+    document.getElementById('sendBtn').disabled = false;
+    document.getElementById('sendBtn').innerHTML = '<i class="bi bi-send"></i> 发送通知';
+    document.getElementById('sendProgress').classList.add('d-none');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}发送历史 - autoWeChat{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4><i class="bi bi-clock-history"></i> 发送历史</h4>
+    <a href="{{ url_for('send.index') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-send"></i> 新建发送
+    </a>
+</div>
+
+{% if logs %}
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead class="table-light">
+            <tr>
+                <th>时间</th>
+                <th>学员</th>
+                <th>模板</th>
+                <th>内容预览</th>
+                <th>状态</th>
+                <th>错误信息</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td class="small">{{ log.sent_at.strftime('%m/%d %H:%M') if log.sent_at else '-' }}</td>
+                <td>{{ log.student.name if log.student else '-' }}</td>
+                <td>{{ log.template.name if log.template else '-' }}</td>
+                <td class="small" style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    {{ log.message_content[:60] if log.message_content else '-' }}
+                </td>
+                <td>
+                    {% if log.status == 'success' %}
+                    <span class="badge bg-success">成功</span>
+                    {% elif log.status == 'failed' %}
+                    <span class="badge bg-danger">失败</span>
+                    {% else %}
+                    <span class="badge bg-secondary">{{ log.status }}</span>
+                    {% endif %}
+                </td>
+                <td class="small text-danger">{{ log.error_message or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-center py-5">
+    <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
+    <p class="text-muted mt-3">暂无发送记录</p>
+</div>
+{% endif %}
+{% endblock %}

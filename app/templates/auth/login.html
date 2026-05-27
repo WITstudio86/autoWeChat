@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}登录 - autoWeChat{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-4 col-lg-3">
+        <div class="text-center mb-4">
+            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="autoWeChat" class="login-logo">
+            <h4>autoWeChat</h4>
+            <p class="text-muted">教培机构通知助手</p>
+        </div>
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">用户名</label>
+                        <input type="text" class="form-control" id="username" name="username" required autofocus>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">密码</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">登录</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

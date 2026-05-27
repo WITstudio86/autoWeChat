@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}通知模板 - autoWeChat{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4><i class="bi bi-chat-square-text"></i> 通知模板</h4>
+    <a href="{{ url_for('templates.create') }}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> 创建模板
+    </a>
+</div>
+
+{% if templates %}
+<div class="row">
+    {% for t in templates %}
+    <div class="col-md-6 col-lg-4 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title">{{ t.name }}</h5>
+                <p class="card-text text-muted small">{{ t.preview }}</p>
+                {% if t.description %}
+                <p class="card-text"><small class="text-info">描述：{{ t.description[:60] }}{% if t.description|length > 60 %}...{% endif %}</small></p>
+                {% endif %}
+                <p class="text-muted small mb-2">
+                    更新于 {{ t.updated_at.strftime('%Y-%m-%d %H:%M') if t.updated_at else '-' }}
+                </p>
+                <div class="btn-group">
+                    <a href="{{ url_for('templates.edit', id=t.id) }}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-pencil"></i> 编辑
+                    </a>
+                    <form method="POST" action="{{ url_for('templates.delete', id=t.id) }}"
+                          class="d-inline" onsubmit="return confirmDelete('确认删除模板 {{ t.name }}？');">
+                        <button class="btn btn-sm btn-outline-danger">
+                            <i class="bi bi-trash"></i> 删除
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5">
+    <i class="bi bi-chat-square-text" style="font-size: 3rem; color: #ccc;"></i>
+    <p class="text-muted mt-3">暂无通知模板，点击上方按钮创建</p>
+</div>
+{% endif %}
+{% endblock %}

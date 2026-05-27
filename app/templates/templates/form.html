@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}{% if template %}编辑{% else %}创建{% endif %}模板 - autoWeChat{% endblock %}
+{% block content %}
+<div class="row mt-3">
+    <div class="col-md-8">
+        <h4 class="mb-3">{% if template %}编辑模板{% else %}创建通知模板{% endif %}</h4>
+        <form method="POST" id="templateForm">
+            <div class="mb-3">
+                <label for="name" class="form-label">模板名称</label>
+                <input type="text" class="form-control" id="name" name="name" required
+                       value="{{ template.name if template else '' }}"
+                       placeholder="例如：课后通知、上课提醒">
+            </div>
+
+            <div class="mb-3">
+                <label for="description" class="form-label">
+                    课程内容描述
+                    <span class="text-muted small">（用于AI生成 {autocontent}）</span>
+                </label>
+                <textarea class="form-control" id="description" name="description" rows="3"
+                          placeholder="大致描述本节课的内容，AI会自动生成约200字的课程汇报。例如：&#10;本节课学习了分数的加减法，重点讲解了通分和约分，同学们掌握得不错...">{{ template.description if template else '' }}</textarea>
+                <button type="button" class="btn btn-outline-info btn-sm mt-2" id="generateBtn"
+                        onclick="generateAutoContent()">
+                    <i class="bi bi-magic"></i> 自动生成课程内容
+                </button>
+                <span id="generateStatus" class="text-muted small ms-2"></span>
+            </div>
+
+            <div class="mb-3">
+                <label for="content" class="form-label">
+                    模板内容
+                    <span class="text-muted small">（使用下方变量占位）</span>
+                </label>
+                <textarea class="form-control font-monospace" id="content" name="content" rows="8" required
+                          placeholder="尊敬的家长您好：&#10;{name} 同学在 {class}（{date} {weekday}）的课程中表现良好。&#10;{autocontent}&#10;祝生活愉快！&#10;——{teacher}"
+                          hx-post="{{ url_for('templates.preview') }}"
+                          hx-trigger="keyup changed delay:500ms"
+                          hx-target="#previewArea"
+                          hx-include="#content">{{ template.content if template else '' }}</textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+                {% if template %}保存修改{% else %}创建模板{% endif %}
+            </button>
+            <a href="{{ url_for('templates.list') }}" class="btn btn-outline-secondary">返回</a>
+        </form>
+    </div>
+
+    <div class="col-md-4">
+        {# Variable Hints #}
+        <div class="card shadow-sm mb-3">
+            <div class="card-header">
+                <i class="bi bi-braces"></i> 可用变量
+            </div>
+            <div class="card-body template-vars-hint">
+                <p class="text-muted small mb-2">在模板内容中插入以下变量，发送时自动替换：</p>
+                {% for var, desc in variables.items() %}
+                <div class="mb-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary me-1"
+                            onclick="insertVar('{{ var }}')" title="点击插入">{{ var }}</button>
+                    <small class="text-muted">{{ desc }}</small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {# Live Preview #}
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <i class="bi bi-eye"></i> 实时预览
+            </div>
+            <div class="card-body" id="previewArea">
+                <div class="live-preview text-muted small">
+                    在左侧输入模板内容，此处显示预览效果...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function insertVar(variable) {
+    const textarea = document.getElementById('content');
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    textarea.value = text.substring(0, start) + variable + text.substring(end);
+    textarea.focus();
+    textarea.selectionStart = start + variable.length;
+    textarea.selectionEnd = start + variable.length;
+    textarea.dispatchEvent(new Event('keyup'));
+}
+
+async function generateAutoContent() {
+    const description = document.getElementById('description').value.trim();
+    if (!description) {
+        alert('请先填写课程内容描述');
+        return;
+    }
+    const btn = document.getElementById('generateBtn');
+    const status = document.getElementById('generateStatus');
+    btn.disabled = true;
+    status.textContent = '生成中...';
+
+    try {
+        const resp = await fetch('{{ url_for("templates.generate") }}', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: 'description=' + encodeURIComponent(description)
+        });
+        const text = await resp.text();
+        if (resp.ok) {
+            const textarea = document.getElementById('content');
+            const current = textarea.value;
+            if (current.includes('{autocontent}')) {
+                textarea.value = current.replace('{autocontent}', text);
+            } else {
+                textarea.value = current ? current + '\n' + text : text;
+            }
+            textarea.dispatchEvent(new Event('keyup'));
+            status.textContent = '已生成';
+        } else {
+            status.textContent = '生成失败: ' + text;
+        }
+    } catch (e) {
+        status.textContent = '网络错误';
+    }
+    btn.disabled = false;
+    setTimeout(() => { status.textContent = ''; }, 3000);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Project specific
+instance/
+.mypy_cache/
+.ropeproject/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env

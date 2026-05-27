@@ -1,0 +1,58 @@
+.navbar-brand img {
+    height: 36px;
+}
+
+.login-logo {
+    width: 120px;
+    height: 120px;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+}
+
+.hero-logo {
+    width: 180px;
+    height: 180px;
+    border-radius: 16px;
+}
+
+.sidebar {
+    min-height: calc(100vh - 56px);
+    background-color: #f8f9fa;
+}
+
+.stat-card {
+    transition: transform 0.2s;
+}
+.stat-card:hover {
+    transform: translateY(-2px);
+}
+
+.send-progress {
+    max-height: 300px;
+    overflow-y: auto;
+    font-family: monospace;
+    font-size: 0.85rem;
+}
+
+.template-vars-hint {
+    font-size: 0.85rem;
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 12px;
+}
+
+.live-preview {
+    min-height: 100px;
+    border: 1px dashed #dee2e6;
+    border-radius: 6px;
+    padding: 12px;
+    background: #fafafa;
+}
+
+.course-calendar .date-cell {
+    cursor: pointer;
+    min-height: 60px;
+}
+.course-calendar .date-cell:hover {
+    background-color: #e9ecef;
+}
