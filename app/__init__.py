@@ -1,28 +1,63 @@
-import os
-from flask import Flask, request, jsonify
+from datetime import datetime, date
+from flask import Flask, session
 from app.config import Config
-from app.extensions import db, login_manager
+from app.api_client import api
 
 
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
-    db.init_app(app)
-    login_manager.init_app(app)
-    login_manager.login_view = "auth.login"
-    login_manager.login_message = "请先登录"
-    login_manager.login_message_category = "warning"
+    # Init API client base URL from config
+    api._base_url = app.config["SERVER_BASE_URL"]
 
-    # 对 AJAX 请求返回 JSON 错误而非 HTML 重定向
-    @login_manager.unauthorized_handler
-    def unauthorized():
-        if request.blueprint in ("send", "templates") or _is_ajax():
-            return jsonify({"error": "未登录或会话已过期，请刷新页面重新登录"}), 401
-        from flask import redirect, url_for, flash
-        flash(login_manager.login_message, login_manager.login_message_category)
-        return redirect(url_for(login_manager.login_view, next=request.url))
+    # Jinja2 filter: format date from string or datetime object
+    @app.template_filter("date_fmt")
+    def date_fmt(value, fmt="%Y-%m-%d"):
+        if value is None:
+            return ""
+        if isinstance(value, (datetime, date)):
+            return value.strftime(fmt)
+        # Parse ISO date string (handles both "2026-05-27" and "2026-05-27 10:42:28")
+        try:
+            val = value.strip()
+            if " " in val:
+                dt = datetime.strptime(val, "%Y-%m-%d %H:%M:%S")
+            elif "T" in val:
+                dt = datetime.fromisoformat(val.replace("Z", "+00:00"))
+            else:
+                dt = datetime.strptime(val, "%Y-%m-%d")
+            return dt.strftime(fmt)
+        except (ValueError, AttributeError):
+            return str(value)
 
+    # Context processor: inject current_user from session for template compatibility
+    @app.context_processor
+    def inject_user():
+        teacher = session.get("teacher")
+        if teacher:
+            return {
+                "current_user": type("UserProxy", (), {
+                    "is_authenticated": True,
+                    "is_admin": teacher.get("is_admin", False),
+                    "is_active": teacher.get("is_active", True),
+                    "id": teacher.get("id"),
+                    "username": teacher.get("username", ""),
+                    "display_name": teacher.get("display_name", ""),
+                })()
+            }
+        return {
+            "current_user": type("AnonProxy", (), {
+                "is_authenticated": False,
+                "is_admin": False,
+                "is_active": False,
+                "id": None,
+                "username": "",
+                "display_name": "",
+            })()
+        }
+
+    # Register blueprints
     from app.routes.auth import auth_bp
     from app.routes.admin import admin_bp
     from app.routes.dashboard import dashboard_bp
@@ -41,37 +76,19 @@ def create_app(config_class=Config):
     app.register_blueprint(templates_bp)
     app.register_blueprint(send_bp)
 
-    from app.models import teacher as _  # noqa
-    from app.models import course as _  # noqa
-    from app.models import student as _  # noqa
-    from app.models import template as _  # noqa
-    from app.models import send_log as _  # noqa
-    from app.models import settings as _  # noqa
-
-    with app.app_context():
-        db.create_all()
-        _seed_admin()
+    # Error handler for API connection failures
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        import requests as _requests
+        if isinstance(e, _requests.ConnectionError):
+            return render_error("无法连接到服务器，请检查网络连接或服务器状态")
+        if isinstance(e, _requests.Timeout):
+            return render_error("服务器请求超时，请稍后重试")
+        raise e
 
     return app
 
 
-def _is_ajax():
-    return (
-        request.headers.get("X-Requested-With") == "XMLHttpRequest"
-        or request.headers.get("HX-Request") == "true"
-        or request.headers.get("Accept", "").startswith("application/json")
-    )
-
-
-def _seed_admin():
-    from app.models.teacher import Teacher
-    if Teacher.query.count() == 0:
-        admin = Teacher(
-            username="admin",
-            display_name="管理员",
-            is_admin=True,
-        )
-        admin.set_password("admin123")
-        db.session.add(admin)
-        db.session.commit()
-        print("[初始化] 已创建默认管理员账号: admin / admin123，请尽快修改密码")
+def render_error(message):
+    from flask import render_template
+    return render_template("public/index.html", error=message), 503

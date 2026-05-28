@@ -24,9 +24,9 @@
         <tbody>
             {% for log in logs %}
             <tr>
-                <td class="small">{{ log.sent_at.strftime('%m/%d %H:%M') if log.sent_at else '-' }}</td>
-                <td>{{ log.student.name if log.student else '-' }}</td>
-                <td>{{ log.template.name if log.template else '-' }}</td>
+                <td class="small">{{ log.sent_at | date_fmt('%m/%d %H:%M') if log.sent_at else '-' }}</td>
+                <td>{{ log.student_name or '-' }}</td>
+                <td>{{ log.template_name or '-' }}</td>
                 <td class="small" style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                     {{ log.message_content[:60] if log.message_content else '-' }}
                 </td>

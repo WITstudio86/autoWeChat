@@ -1,28 +1,16 @@
-from functools import wraps
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
-from flask_login import login_required, current_user
-from app.extensions import db
-from app.models.template import NotificationTemplate, AVAILABLE_VARIABLES
-from app.services.message_renderer import preview_message
+from flask import Blueprint, render_template, request, redirect, url_for, flash
+from app.middleware import login_required, api_login_required
+from app.api_client import api
+from app.services.message_renderer import preview_message, AVAILABLE_VARIABLES
 from app.services.ai_generator import generate_autocontent
 
 templates_bp = Blueprint("templates", __name__, url_prefix="/templates")
 
 
-def api_login_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not current_user.is_authenticated:
-            return jsonify({"error": "未登录或会话已过期，请刷新页面重新登录"}), 401
-        return f(*args, **kwargs)
-    return decorated
-
-
 @templates_bp.route("/")
 @login_required
 def list():
-    tmpls = NotificationTemplate.query.filter_by(teacher_id=current_user.id)\
-        .order_by(NotificationTemplate.updated_at.desc()).all()
+    tmpls = api.list_templates()
     return render_template("templates/list.html", templates=tmpls)
 
 
@@ -39,14 +27,11 @@ def create():
             return render_template("templates/form.html", template=None,
                                   variables=AVAILABLE_VARIABLES)
 
-        tmpl = NotificationTemplate(
-            teacher_id=current_user.id,
-            name=name,
-            content=content,
-            description=description or None,
-        )
-        db.session.add(tmpl)
-        db.session.commit()
+        api.create_template({
+            "name": name,
+            "content": content,
+            "description": description or None,
+        })
         flash(f"模板 '{name}' 创建成功", "success")
         return redirect(url_for("templates.list"))
 
@@ -57,20 +42,28 @@ def create():
 @templates_bp.route("/<int:id>/edit", methods=["GET", "POST"])
 @login_required
 def edit(id):
-    tmpl = NotificationTemplate.query.filter_by(id=id, teacher_id=current_user.id).first_or_404()
+    try:
+        tmpl = api.get_template(id)
+    except Exception:
+        flash("模板不存在", "danger")
+        return redirect(url_for("templates.list"))
 
     if request.method == "POST":
-        tmpl.name = request.form.get("name", "").strip()
-        tmpl.content = request.form.get("content", "").strip()
-        tmpl.description = request.form.get("description", "").strip() or None
+        name = request.form.get("name", "").strip()
+        content = request.form.get("content", "").strip()
+        description = request.form.get("description", "").strip() or None
 
-        if not tmpl.name or not tmpl.content:
+        if not name or not content:
             flash("模板名称和内容不能为空", "danger")
             return render_template("templates/form.html", template=tmpl,
                                   variables=AVAILABLE_VARIABLES)
 
-        db.session.commit()
-        flash(f"模板 '{tmpl.name}' 已更新", "success")
+        api.update_template(id, {
+            "name": name,
+            "content": content,
+            "description": description,
+        })
+        flash(f"模板 '{name}' 已更新", "success")
         return redirect(url_for("templates.list"))
 
     return render_template("templates/form.html", template=tmpl,
@@ -80,10 +73,12 @@ def edit(id):
 @templates_bp.route("/<int:id>/delete", methods=["POST"])
 @login_required
 def delete(id):
-    tmpl = NotificationTemplate.query.filter_by(id=id, teacher_id=current_user.id).first_or_404()
-    db.session.delete(tmpl)
-    db.session.commit()
-    flash(f"模板 '{tmpl.name}' 已删除", "success")
+    try:
+        tmpl = api.get_template(id)
+        api.delete_template(id)
+        flash(f"模板 '{tmpl['name']}' 已删除", "success")
+    except Exception:
+        flash("删除失败", "danger")
     return redirect(url_for("templates.list"))
 
 

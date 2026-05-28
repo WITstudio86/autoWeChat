@@ -20,7 +20,7 @@
                 </p>
                 <p class="card-text">
                     <span class="badge bg-info">{{ g.student_count }} 名学员</span>
-                    <span class="badge bg-light text-dark">{{ g.courses.count() }} 节课</span>
+                    <span class="badge bg-light text-dark">{{ g.course_count }} 节课</span>
                 </p>
                 <div class="btn-group">
                     <a href="{{ url_for('courses.calendar', id=g.id) }}" class="btn btn-sm btn-outline-info">

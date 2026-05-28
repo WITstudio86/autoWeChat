@@ -8,16 +8,15 @@ class Config:
     os.makedirs(INSTANCE_DIR, exist_ok=True)
 
     SECRET_KEY = os.environ.get("SECRET_KEY", "autowechat-dev-secret-key")
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        "DATABASE_URL", f"sqlite:///{os.path.join(INSTANCE_DIR, 'autowechat.db')}"
-    )
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    # Session 配置：确保 fetch 请求携带 cookie
+    # Remote Node.js server
+    SERVER_BASE_URL = os.environ.get("SERVER_BASE_URL", "http://localhost:5001")
+
+    # Session configuration
     SESSION_COOKIE_SAMESITE = "Lax"
     SESSION_COOKIE_HTTPONLY = True
 
-    # DeepSeek AI 全局配置
+    # DeepSeek AI global config (used locally for send flow)
     AI_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "sk-2f4733c9ad11405eb7d67962d1219bba")
     AI_API_ENDPOINT = "https://api.deepseek.com/v1"
     AI_MODEL = "deepseek-v4-flash"

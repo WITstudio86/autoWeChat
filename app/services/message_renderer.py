@@ -1,3 +1,14 @@
+AVAILABLE_VARIABLES = {
+    "{name}": "学员姓名",
+    "{class}": "课程时间（如 周六 8:40-10:10）",
+    "{date}": "上课日期（如 2026-05-27）",
+    "{weekday}": "中文星期（周一~周日）",
+    "{teacher}": "教师姓名",
+    "{autocontent}": "课程内容（发送时填写概要，AI 扩展成约200字）",
+    "{performance}": "学员表现（发送时填写每个学员的概要，AI 扩展成个性化评语）",
+}
+
+
 def render_message(
     template_content: str,
     student_name: str = "",

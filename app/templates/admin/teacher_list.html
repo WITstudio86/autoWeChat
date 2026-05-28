@@ -42,10 +42,10 @@
                         <span class="badge bg-warning">禁用</span>
                         {% endif %}
                     </td>
-                    <td>{{ t.created_at.strftime('%Y-%m-%d %H:%M') if t.created_at else '-' }}</td>
+                    <td>{{ t.created_at | date_fmt('%Y-%m-%d %H:%M') if t.created_at else '-' }}</td>
                     <td>
                         <a href="{{ url_for('admin.edit', id=t.id) }}" class="btn btn-sm btn-outline-primary">编辑</a>
-                        <button class="btn btn-sm btn-outline-warning"
+<button class="btn btn-sm btn-outline-warning"
                                 onclick="resetPassword({{ t.id }}, '{{ t.username }}')">重置密码</button>
                         {% if t.id != current_user.id %}
                         <form method="POST" action="{{ url_for('admin.delete', id=t.id) }}"

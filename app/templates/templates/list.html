@@ -15,12 +15,12 @@
         <div class="card shadow-sm h-100">
             <div class="card-body">
                 <h5 class="card-title">{{ t.name }}</h5>
-                <p class="card-text text-muted small">{{ t.preview }}</p>
+                <p class="card-text text-muted small">{{ t.content[:80] + '...' if t.content and t.content|length > 80 else t.content or '' }}</p>
                 {% if t.description %}
                 <p class="card-text"><small class="text-info">描述：{{ t.description[:60] }}{% if t.description|length > 60 %}...{% endif %}</small></p>
                 {% endif %}
                 <p class="text-muted small mb-2">
-                    更新于 {{ t.updated_at.strftime('%Y-%m-%d %H:%M') if t.updated_at else '-' }}
+                    更新于 {{ t.updated_at | date_fmt('%Y-%m-%d %H:%M') if t.updated_at else '-' }}
                 </p>
                 <div class="btn-group">
                     <a href="{{ url_for('templates.edit', id=t.id) }}" class="btn btn-sm btn-outline-primary">

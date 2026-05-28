@@ -1,30 +1,30 @@
-from flask import Blueprint, render_template, redirect, url_for, request, flash
-from flask_login import login_user, logout_user, login_required, current_user
-from app.models.teacher import Teacher
+from flask import Blueprint, render_template, redirect, url_for, request, flash, session
+from app.api_client import api
+from app.middleware import login_required
 
 auth_bp = Blueprint("auth", __name__)
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
-    if current_user.is_authenticated:
+    if session.get("jwt"):
         return redirect(url_for("dashboard.index"))
 
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
 
-        teacher = Teacher.query.filter_by(username=username).first()
-        if teacher and teacher.check_password(password):
-            if not teacher.is_active:
-                flash("账号已被禁用，请联系管理员", "danger")
-                return render_template("auth/login.html")
+        try:
+            result = api.login(username, password)
+            session["jwt"] = result["token"]
+            session["jwt_exp"] = result["expires_at"]
+            session["teacher"] = result["teacher"]
+            session.permanent = True
 
-            login_user(teacher)
             next_page = request.args.get("next")
             return redirect(next_page or url_for("dashboard.index"))
-
-        flash("用户名或密码错误", "danger")
+        except Exception:
+            flash("用户名或密码错误", "danger")
 
     return render_template("auth/login.html")
 
@@ -32,7 +32,8 @@ def login():
 @auth_bp.route("/logout")
 @login_required
 def logout():
-    logout_user()
+    api.logout()
+    session.clear()
     flash("已退出登录", "info")
     return redirect(url_for("auth.login"))
 
@@ -40,22 +41,26 @@ def logout():
 @auth_bp.route("/settings", methods=["GET", "POST"])
 @login_required
 def settings():
-    from app.extensions import db
-    from app.models.settings import Settings
-
-    user_settings = current_user.settings
-    if not user_settings:
-        user_settings = Settings(teacher_id=current_user.id)
-        db.session.add(user_settings)
-        db.session.flush()
+    try:
+        user_settings = api.get_settings()
+    except Exception:
+        user_settings = {}
 
     if request.method == "POST":
         display_name = request.form.get("display_name", "").strip()
         password = request.form.get("password", "")
         password2 = request.form.get("password2", "")
 
-        current_user.display_name = display_name or None
+        # Update display_name on server
+        if display_name:
+            try:
+                api.admin_update_teacher(session["teacher"]["id"], {"display_name": display_name})
+                session["teacher"]["display_name"] = display_name or None
+            except Exception:
+                flash("更新显示名称失败", "danger")
 
+        # Password change - not supported via Node.js API for self-service yet,
+        # use admin reset-password endpoint
         if password:
             if password != password2:
                 flash("两次输入的密码不一致", "danger")
@@ -63,14 +68,32 @@ def settings():
             if len(password) < 6:
                 flash("密码长度至少6位", "danger")
                 return render_template("auth/settings.html", settings=user_settings)
-            current_user.set_password(password)
+            try:
+                api.admin_reset_password(session["teacher"]["id"], password)
+                flash("密码已更新，请重新登录", "success")
+                session.clear()
+                return redirect(url_for("auth.login"))
+            except Exception:
+                flash("修改密码失败", "danger")
 
         delay_ms = request.form.get("wechat_delay_ms", type=int)
-        if delay_ms:
-            user_settings.wechat_delay_ms = max(1000, min(10000, delay_ms))
+        target_app_name = request.form.get("target_app_name", "").strip()
 
-        db.session.commit()
-        flash("设置已更新", "success")
+        updates = {}
+        if delay_ms:
+            updates["wechat_delay_ms"] = max(1000, min(10000, delay_ms))
+        if target_app_name:
+            updates["target_app_name"] = target_app_name
+
+        if updates:
+            try:
+                api.update_settings(updates)
+                for k, v in updates.items():
+                    user_settings[k] = v
+                flash("设置已更新", "success")
+            except Exception:
+                flash("保存设置失败", "danger")
+
         return redirect(url_for("auth.settings"))
 
     return render_template("auth/settings.html", settings=user_settings)

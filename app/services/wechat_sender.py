@@ -11,21 +11,21 @@ class WeChatSendError(Exception):
     pass
 
 
-def send_message(contact: str, message: str, delay_ms: int = 2500) -> bool:
+def send_message(contact: str, message: str, delay_ms: int = 2500, app_name: str = "WeChat") -> bool:
     """Send a WeChat message to the specified contact. Returns True on success."""
     sys_name = platform.system()
 
     if sys_name == "Darwin":
-        _mac_send(contact, message, delay_ms)
+        _mac_send(contact, message, delay_ms, app_name)
     elif sys_name == "Windows":
-        _windows_send(contact, message, delay_ms)
+        _windows_send(contact, message, delay_ms, app_name)
     else:
         raise WeChatSendError(f"不支持的系统: {sys_name}")
 
     return True
 
 
-def _mac_send(contact: str, message: str, delay_ms: int):
+def _mac_send(contact: str, message: str, delay_ms: int, app_name: str):
     def keystroke(key, with_cmd=False):
         if with_cmd:
             subprocess.call([
@@ -52,7 +52,7 @@ def _mac_send(contact: str, message: str, delay_ms: int):
 
     base_delay = max(delay_ms / 1000.0, 0.5)
 
-    subprocess.call(["open", "-a", "WeChat"])
+    subprocess.call(["open", "-a", app_name])
     time.sleep(max(base_delay * 1.2, 3.0))
 
     keystroke("f", with_cmd=True)
@@ -73,10 +73,10 @@ def _mac_send(contact: str, message: str, delay_ms: int):
     time.sleep(base_delay * 0.3)
 
 
-def _windows_send(contact: str, message: str, delay_ms: int):
+def _windows_send(contact: str, message: str, delay_ms: int, app_name: str):
     base_delay = max(delay_ms / 1000.0, 0.5)
 
-    subprocess.call(["start", "WeChat"], shell=True)
+    subprocess.call(["start", app_name], shell=True)
     time.sleep(max(base_delay * 1.2, 3.0))
 
     pyautogui.hotkey("ctrl", "f")

@@ -28,3 +28,6 @@ Thumbs.db
 
 # Environment
 .env
+
+# Database files
+data/

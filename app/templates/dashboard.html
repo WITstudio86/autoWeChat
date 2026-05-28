@@ -51,8 +51,8 @@
                 <ul class="list-group list-group-flush">
                     {% for c in today_courses %}
                     <li class="list-group-item d-flex justify-content-between align-items-center">
-                        {{ c.group.name if c.group else '-' }}
-                        <span class="badge {{ c.status_badge }}">
+                        {{ c.group_name or '-' }}
+                        <span class="badge {% if c.status == 'upcoming' %}bg-primary{% elif c.status == 'completed' %}bg-success{% else %}bg-secondary{% endif %}">">
                             {% if c.status == 'upcoming' %}待上{% elif c.status == 'completed' %}已完成{% else %}已取消{% endif %}
                         </span>
                     </li>
@@ -76,9 +76,9 @@
                 <table class="table table-sm mb-0">
                     {% for c in upcoming_courses %}
                     <tr>
-                        <td>{{ c.date.strftime('%m/%d') }}</td>
+                        <td>{{ c.date | date_fmt('%m/%d') }}</td>
                         <td>{{ c.weekday_display }}</td>
-                        <td>{{ c.group.name if c.group else '-' }}</td>
+                        <td>{{ c.group_name or '-' }}</td>
                     </tr>
                     {% endfor %}
                 </table>
@@ -101,8 +101,8 @@
                 <table class="table table-sm mb-0">
                     {% for log in recent_sends %}
                     <tr>
-                        <td class="small">{{ log.sent_at.strftime('%m/%d %H:%M') if log.sent_at else '-' }}</td>
-                        <td>{{ log.student.name if log.student else '-' }}</td>
+                        <td class="small">{{ log.sent_at | date_fmt('%m/%d %H:%M') if log.sent_at else '-' }}</td>
+                        <td>{{ log.student_name or '-' }}</td>
                         <td>
                             {% if log.status == 'success' %}
                             <span class="badge bg-success">成功</span>

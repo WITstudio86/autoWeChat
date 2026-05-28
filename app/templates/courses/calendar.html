@@ -29,10 +29,10 @@
         <tbody>
             {% for c in courses %}
             <tr>
-                <td>{{ c.date.strftime('%Y-%m-%d') }}</td>
+                <td>{{ c.date | date_fmt('%Y-%m-%d') }}</td>
                 <td>{{ c.weekday_display }}</td>
                 <td>
-                    <span class="badge {{ c.status_badge }}">
+                    <span class="badge {% if c.status == 'upcoming' %}bg-primary{% elif c.status == 'completed' %}bg-success{% else %}bg-secondary{% endif %}">">
                         {% if c.status == 'upcoming' %}待上{% elif c.status == 'completed' %}已完成{% else %}已取消{% endif %}
                     </span>
                 </td>

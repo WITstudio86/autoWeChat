@@ -16,9 +16,9 @@
                 <td><strong>{{ s.name }}</strong></td>
                 <td>{{ s.parent_wechat or '-' }}</td>
                 <td>
-                    <span class="badge bg-info">{{ s.course_group.name if s.course_group else '未分组' }}</span>
+                    <span class="badge bg-info">{{ s.group_name or '未分组' }}</span>
                 </td>
-                <td class="small">{{ s.course_group.time_display if s.course_group else '-' }}</td>
+                <td class="small">{{ s.group_time_display or '-' }}</td>
                 <td>{{ s.phone or '-' }}</td>
                 <td>
                     <a href="{{ url_for('students.edit', id=s.id) }}" class="btn btn-sm btn-outline-primary" title="编辑">

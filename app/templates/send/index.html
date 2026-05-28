@@ -12,8 +12,35 @@
 </div>
 {% else %}
 <div class="row">
-    {# Left: Template + Description #}
+    {# Left: Template + Description + Target Window #}
     <div class="col-md-3">
+        {# Target Window Selector #}
+        <div class="card shadow-sm mb-3 border-info">
+            <div class="card-header"><i class="bi bi-window"></i> 目标窗口</div>
+            <div class="card-body">
+                <input class="form-control form-control-sm" id="appNameInput"
+                       list="appNameList" value="{{ target_app_name or 'WeChat' }}"
+                       placeholder="输入应用名称">
+                <datalist id="appNameList">
+                    <option value="WeChat">英文版微信</option>
+                    <option value="微信">中文版微信</option>
+                    <option value="企业微信">企业微信 (WeCom)</option>
+                </datalist>
+                <div class="form-text small">macOS 应用程序名称</div>
+                <button class="btn btn-outline-info btn-sm w-100 mt-2"
+                        onclick="testWindow()" id="testWindowBtn">
+                    <i class="bi bi-camera"></i> 测试窗口
+                </button>
+                <div id="testResult" class="mt-2 d-none">
+                    <img id="testImage" class="img-fluid rounded border"
+                         style="max-height: 160px; cursor: pointer;"
+                         onclick="this.style.maxHeight='none';this.style.maxWidth='100%'"
+                         title="测试截图">
+                    <p class="small text-success mt-1 mb-0" id="testOk"></p>
+                </div>
+            </div>
+        </div>
+
         <div class="card shadow-sm mb-3">
             <div class="card-header"><i class="bi bi-chat-square-text"></i> 选择模板</div>
             <div class="card-body">
@@ -55,9 +82,9 @@
                         {% for c in g.courses %}
                         {% if c.status == 'upcoming' %}
                         <option value="{{ c.id }}" data-time="{{ g.time_display }}"
-                                data-date="{{ c.date.strftime('%Y-%m-%d') }}"
+                                data-date="{{ c.date | date_fmt('%Y-%m-%d') }}"
                                 data-weekday="{{ c.weekday_display }}">
-                            {{ c.date.strftime('%m/%d') }} {{ c.weekday_display }}
+                            {{ c.date | date_fmt('%m/%d') }} {{ c.weekday_display }}
                         </option>
                         {% endif %}
                         {% endfor %}
@@ -82,11 +109,11 @@
                         <input class="form-check-input student-check" type="checkbox"
                                value="{{ s.id }}" id="s{{ s.id }}"
                                data-name="{{ s.name }}"
-                               data-group="{{ s.course_group.time_display if s.course_group else '' }}">
+                               data-group="{{ s.group_time_display or '' }}">
                         <label class="form-check-label" for="s{{ s.id }}">
                             <strong>{{ s.name }}</strong>
-                            {% if s.course_group %}
-                            <small class="text-muted">({{ s.course_group.name }})</small>
+                            {% if s.group_name %}
+                            <small class="text-muted">({{ s.group_name }})</small>
                             {% else %}
                             <small class="text-warning">(未分组)</small>
                             {% endif %}
@@ -139,6 +166,12 @@
                         <span id="progressText">准备中...</span>
                         <span class="text-muted" id="progressCount"></span>
                     </p>
+                    <div id="stitchedDownload" class="mt-3 d-none">
+                        <button class="btn btn-success btn-sm w-100" id="stitchedBtn"
+                                onclick="downloadStitched()">
+                            <i class="bi bi-images"></i> 下载发送记录长图
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -161,6 +194,40 @@ document.querySelectorAll('.student-check').forEach(cb => {
         updatePerfInputs();
     });
 });
+
+async function testWindow() {
+    const appName = document.getElementById('appNameInput').value.trim();
+    if (!appName) { alert('请输入应用名称'); return; }
+
+    const btn = document.getElementById('testWindowBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 测试中...';
+    document.getElementById('testResult').classList.add('d-none');
+
+    try {
+        const formData = new FormData();
+        formData.append('app_name', appName);
+        const resp = await fetch('{{ url_for("send.test_window") }}', {
+            method: 'POST', body: formData, credentials: 'same-origin'
+        });
+        const data = await safeJson(resp);
+        if (!data) return;
+
+        if (resp.ok && data.success) {
+            document.getElementById('testImage').src = data.image_url + '?t=' + Date.now();
+            document.getElementById('testImage').style.maxHeight = '160px';
+            document.getElementById('testOk').textContent = '✓ ' + data.app_name + ' 窗口捕获成功';
+            document.getElementById('testResult').classList.remove('d-none');
+        } else {
+            alert('测试失败: ' + (data.error || '未知错误'));
+        }
+    } catch (e) {
+        alert('网络错误: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-camera"></i> 测试窗口';
+    }
+}
 
 function onTemplateChange() {
     const opt = document.getElementById('templateSelect').selectedOptions[0];
@@ -261,6 +328,7 @@ async function startSend() {
 
     const formData = new FormData();
     formData.append('template_id', templateId);
+    formData.append('app_name', document.getElementById('appNameInput').value.trim() || 'WeChat');
     if (courseId) formData.append('course_id', courseId);
     studentIds.forEach(id => formData.append('student_ids', id));
 
@@ -311,6 +379,9 @@ function pollProgress() {
                 document.getElementById('sendBtn').classList.add('btn-success');
                 document.getElementById('progressBar').classList.remove('progress-bar-animated');
                 document.getElementById('progressText').textContent = '发送完成！';
+                if (data.stitched_available) {
+                    document.getElementById('stitchedDownload').classList.remove('d-none');
+                }
                 return;
             }
             pollTimer = setTimeout(pollProgress, 2000);
@@ -321,6 +392,12 @@ function resetSendBtn() {
     document.getElementById('sendBtn').disabled = false;
     document.getElementById('sendBtn').innerHTML = '<i class="bi bi-send"></i> 发送通知';
     document.getElementById('sendProgress').classList.add('d-none');
+}
+
+function downloadStitched() {
+    if (jobId) {
+        window.location.href = '/send/stitched/' + jobId;
+    }
 }
 </script>
 {% endblock %}

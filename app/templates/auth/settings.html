@@ -39,6 +39,19 @@
                                min="1000" max="10000" step="100">
                         <div class="form-text">每次发送消息之间的等待时间，建议 2000-3000 毫秒</div>
                     </div>
+                    <div class="mb-3">
+                        <label for="target_app_name" class="form-label">目标应用名称</label>
+                        <input type="text" class="form-control" id="target_app_name" name="target_app_name"
+                               list="appNameList"
+                               value="{{ settings.target_app_name if settings else 'WeChat' }}"
+                               placeholder="WeChat">
+                        <datalist id="appNameList">
+                            <option value="WeChat">英文版微信</option>
+                            <option value="微信">中文版微信</option>
+                            <option value="企业微信">企业微信 (WeCom)</option>
+                        </datalist>
+                        <div class="form-text">macOS 应用程序名称，用于自动操控和截图的窗口目标</div>
+                    </div>
                 </div>
             </div>
 
