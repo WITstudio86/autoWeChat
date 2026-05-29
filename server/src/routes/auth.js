@@ -6,6 +6,11 @@ const { verifyPassword } = require('../utils/hash');
 const { sendJson, sendError } = require('../utils/response');
 const authMiddleware = require('../middleware/auth');
 
+function computeRemainingDays(expire_at) {
+  if (!expire_at) return null;
+  return Math.ceil((new Date(expire_at) - new Date()) / (1000 * 60 * 60 * 24));
+}
+
 const router = express.Router();
 
 // POST /api/auth/login (public)
@@ -32,7 +37,11 @@ router.post('/login', (req, res) => {
   const expiresAt = new Date(Date.now() + config.JWT_EXPIRE_HOURS * 3600 * 1000).toISOString();
 
   const { password_hash, ...teacherData } = teacher;
-  sendJson(res, { token, expires_at: expiresAt, teacher: teacherData });
+  sendJson(res, {
+    token,
+    expires_at: expiresAt,
+    teacher: { ...teacherData, remaining_days: computeRemainingDays(teacherData.expire_at) },
+  });
 });
 
 // POST /api/auth/logout (public - best effort)
@@ -47,7 +56,7 @@ router.get('/me', authMiddleware, (req, res) => {
     return sendError(res, '用户不存在', 404);
   }
   const { password_hash, ...teacherData } = teacher;
-  sendJson(res, teacherData);
+  sendJson(res, { ...teacherData, remaining_days: computeRemainingDays(teacherData.expire_at) });
 });
 
 module.exports = router;
