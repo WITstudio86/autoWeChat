@@ -89,6 +89,21 @@
     </nav>
     {% endif %}
 
+    {% if current_user.is_authenticated and not current_user.is_admin and current_user.remaining_days is not none %}
+      {% if current_user.is_expired %}
+      <div class="alert alert-danger text-center mb-0 rounded-0" role="alert">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        您的账户已到期 ({{ current_user.expire_at | date_fmt('%Y-%m-%d') }})，当前仅支持查看历史数据。
+        请联系管理员续期。
+      </div>
+      {% elif current_user.remaining_days <= 7 %}
+      <div class="alert alert-warning text-center mb-0 rounded-0" role="alert">
+        <i class="bi bi-exclamation-triangle"></i>
+        您的账户将于 {{ current_user.remaining_days }} 天后到期 ({{ current_user.expire_at | date_fmt('%Y-%m-%d') }})，请联系管理员续期。
+      </div>
+      {% endif %}
+    {% endif %}
+
     <div class="container-fluid mt-3">
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
