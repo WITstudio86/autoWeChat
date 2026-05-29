@@ -12,9 +12,16 @@ router.use(adminMiddleware);
 // GET /api/admin/teachers
 router.get('/teachers', (req, res) => {
   const rows = db.prepare('SELECT * FROM teachers ORDER BY created_at DESC').all();
+  const now = new Date().toISOString();
   const result = rows.map(r => {
     const { password_hash, ...t } = r;
-    return t;
+    let remaining_days = null;
+    if (t.expire_at) {
+      const expireDate = new Date(t.expire_at);
+      const nowDate = new Date();
+      remaining_days = Math.ceil((expireDate - nowDate) / (1000 * 60 * 60 * 24));
+    }
+    return { ...t, remaining_days };
   });
   sendJson(res, result);
 });
@@ -28,9 +35,18 @@ router.post('/teachers', (req, res) => {
   const existing = db.prepare('SELECT id FROM teachers WHERE username = ?').get(username);
   if (existing) return sendError(res, '用户名已存在', 409);
 
+  // Calculate expire_at from duration_months (1, 3, 6, 12)
+  let expire_at = null;
+  const durationMonths = parseInt(req.body.duration_months, 10);
+  if (durationMonths && [1, 3, 6, 12].includes(durationMonths)) {
+    const exp = new Date();
+    exp.setMonth(exp.getMonth() + durationMonths);
+    expire_at = exp.toISOString();
+  }
+
   const result = db.prepare(
-    'INSERT INTO teachers (username, password_hash, display_name) VALUES (?,?,?)'
-  ).run(username, hashPassword(password), req.body.display_name || null);
+    'INSERT INTO teachers (username, password_hash, display_name, expire_at) VALUES (?,?,?,?)'
+  ).run(username, hashPassword(password), req.body.display_name || null, expire_at);
 
   const row = db.prepare('SELECT * FROM teachers WHERE id = ?').get(result.lastInsertRowid);
   const { password_hash, ...teacher } = row;
@@ -56,6 +72,17 @@ router.put('/teachers/:id', (req, res) => {
     }
     updates.push('is_active = ?');
     values.push(req.body.is_active ? 1 : 0);
+  }
+
+  // Handle duration_months: extend from current expire_at, or from now if not set/expired
+  const durationMonths = parseInt(req.body.duration_months, 10);
+  if (durationMonths && [1, 3, 6, 12].includes(durationMonths)) {
+    const baseDate = row.expire_at && new Date(row.expire_at) > new Date()
+      ? new Date(row.expire_at)
+      : new Date();
+    baseDate.setMonth(baseDate.getMonth() + durationMonths);
+    updates.push('expire_at = ?');
+    values.push(baseDate.toISOString());
   }
 
   if (updates.length > 0) {
