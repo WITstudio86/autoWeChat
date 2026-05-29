@@ -4,6 +4,15 @@
 <h4 class="mb-1"><i class="bi bi-send"></i> 批量发送通知</h4>
 <p class="text-muted small mb-3">选择模板和学员，填写概要后 AI 自动扩展生成内容。发送期间请勿操作键盘和鼠标。</p>
 
+{% if current_user.is_expired %}
+<div class="alert alert-danger">
+  <i class="bi bi-lock-fill"></i> 您的账户已到期，群发功能已禁用。请联系管理员续期。
+</div>
+<meta name="user-is-expired" content="true">
+{% else %}
+<meta name="user-is-expired" content="false">
+{% endif %}
+
 {% if not templates or not students %}
 <div class="alert alert-warning">
     <i class="bi bi-exclamation-triangle"></i>
@@ -72,31 +81,21 @@
             </div>
         </div>
 
-        <div class="card shadow-sm">
-            <div class="card-header"><i class="bi bi-calendar-check"></i> 关联课程（可选）</div>
-            <div class="card-body">
-                <select class="form-select" id="courseSelect" onchange="updatePreview()">
-                    <option value="">-- 不关联 --</option>
-                    {% for g in groups %}
-                    <optgroup label="{{ g.name }}">
-                        {% for c in g.courses %}
-                        {% if c.status == 'upcoming' %}
-                        <option value="{{ c.id }}" data-time="{{ g.time_display }}"
-                                data-date="{{ c.date | date_fmt('%Y-%m-%d') }}"
-                                data-weekday="{{ c.weekday_display }}">
-                            {{ c.date | date_fmt('%m/%d') }} {{ c.weekday_display }}
-                        </option>
-                        {% endif %}
-                        {% endfor %}
-                    </optgroup>
-                    {% endfor %}
-                </select>
-            </div>
-        </div>
     </div>
 
-    {# Center: Student Selection + Performance Notes #}
+    {# Center: Group Filter + Student Selection + Performance Notes #}
     <div class="col-md-5">
+        {# Group Filter #}
+        <div class="mb-2">
+            <select class="form-select form-select-sm" id="groupFilter" onchange="filterByGroup()">
+                <option value="">-- 全部学员 --</option>
+                {% for g in groups %}
+                <option value="{{ g.id }}">{{ g.name }} ({{ g.student_count }}人)</option>
+                {% endfor %}
+                <option value="-1">未分组</option>
+            </select>
+        </div>
+
         <div class="card shadow-sm">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span><i class="bi bi-people"></i> 选择学员</span>
@@ -104,7 +103,8 @@
             </div>
             <div class="card-body p-2" style="max-height: 500px; overflow-y: auto;" id="studentList">
                 {% for s in students %}
-                <div class="student-row border rounded p-2 mb-1" id="studentRow{{ s.id }}">
+                <div class="student-row border rounded p-2 mb-1" id="studentRow{{ s.id }}"
+                     data-group-id="{{ s.course_group_id or -1 }}">
                     <div class="form-check">
                         <input class="form-check-input student-check" type="checkbox"
                                value="{{ s.id }}" id="s{{ s.id }}"
@@ -135,7 +135,7 @@
         </div>
     </div>
 
-    {# Right: Preview + Send #}
+    {# Right: Preview + Generate + Send #}
     <div class="col-md-4">
         <div class="card shadow-sm mb-3">
             <div class="card-header"><i class="bi bi-eye"></i> 消息预览</div>
@@ -146,17 +146,37 @@
             </div>
         </div>
 
+        <button class="btn btn-outline-primary w-100 mb-2" id="generateBtn" onclick="generateMessages()" disabled>
+            <i class="bi bi-lightning"></i> 生成消息
+        </button>
         <button class="btn btn-primary w-100 btn-lg" id="sendBtn" onclick="startSend()" disabled>
             <i class="bi bi-send"></i> 发送通知
         </button>
         <div class="alert alert-warning small mt-2">
-            <i class="bi bi-exclamation-triangle"></i> 发送期间请勿操作键盘鼠标，微信窗口会被自动控制。
+            <i class="bi bi-exclamation-triangle"></i> 建议先生成消息检查无误后再发送。发送期间请勿操作键盘鼠标。
+        </div>
+
+        {# Generated Messages Review #}
+        <div id="generatedReview" class="mt-3 d-none">
+            <div class="card shadow-sm border-success">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-check-circle"></i> 已生成消息</span>
+                    <span class="badge bg-light text-dark" id="generatedCount">0条</span>
+                </div>
+                <div class="card-body p-2" style="max-height: 400px; overflow-y: auto;" id="generatedMessages">
+                </div>
+            </div>
         </div>
 
         {# Progress Area #}
         <div id="sendProgress" class="mt-3 d-none">
             <div class="card shadow-sm">
-                <div class="card-header"><i class="bi bi-arrow-repeat"></i> 发送进度</div>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-arrow-repeat"></i> 发送进度</span>
+                    <button class="btn btn-danger btn-sm" id="abortBtn" onclick="cancelSend()">
+                        <i class="bi bi-stop-circle"></i> 中断发送
+                    </button>
+                </div>
                 <div class="card-body">
                     <div class="progress mb-2">
                         <div class="progress-bar progress-bar-striped progress-bar-animated"
@@ -186,6 +206,7 @@ let jobId = null;
 let pollTimer = null;
 let currentHasAutocontent = false;
 let currentHasPerformance = false;
+let currentGenerateId = null;
 
 document.querySelectorAll('.student-check').forEach(cb => {
     cb.addEventListener('change', () => {
@@ -235,6 +256,8 @@ function onTemplateChange() {
     currentHasPerformance = opt ? opt.dataset.hasPerformance === 'true' : false;
 
     document.getElementById('autocontentCard').classList.toggle('d-none', !currentHasAutocontent);
+    // Clear generated messages when template changes
+    clearGenerated();
     updatePerfInputs();
     updatePreview();
     updateSelectedCount();
@@ -252,7 +275,7 @@ function updatePerfInputs() {
 }
 
 function toggleAll() {
-    const checks = document.querySelectorAll('.student-check');
+    const checks = document.querySelectorAll('.student-row:not(.d-none) .student-check');
     const allChecked = [...checks].every(c => c.checked);
     checks.forEach(c => { c.checked = !allChecked; });
     updateSelectedCount();
@@ -260,23 +283,51 @@ function toggleAll() {
     updatePerfInputs();
 }
 
+function filterByGroup() {
+    const groupId = document.getElementById('groupFilter').value;
+    document.querySelectorAll('.student-row').forEach(row => {
+        if (!groupId || row.dataset.groupId === groupId) {
+            row.classList.remove('d-none');
+        } else {
+            row.classList.add('d-none');
+            const cb = row.querySelector('.student-check');
+            if (cb) cb.checked = false;
+        }
+    });
+    updateSelectedCount();
+    updatePreview();
+    updatePerfInputs();
+}
+
 function updateSelectedCount() {
+    if (document.querySelector('meta[name="user-is-expired"]')?.content === 'true') {
+        document.getElementById('generateBtn').disabled = true;
+        document.getElementById('sendBtn').disabled = true;
+        return;
+    }
     const count = document.querySelectorAll('.student-check:checked').length;
     document.getElementById('selectedCount').textContent = count;
     document.getElementById('countDisplay').textContent = '已选 ' + count + ' 人';
     const hasTemplate = !!document.getElementById('templateSelect').value;
-    document.getElementById('sendBtn').disabled = (count === 0 || !hasTemplate);
+    const canAct = count > 0 && hasTemplate;
+    document.getElementById('generateBtn').disabled = !canAct;
+    document.getElementById('sendBtn').disabled = !canAct;
 }
 
 function updatePreview() {
+    if (document.querySelector('meta[name="user-is-expired"]')?.content === 'true') {
+        document.getElementById('generateBtn').disabled = true;
+        document.getElementById('sendBtn').disabled = true;
+        document.getElementById('sendPreview').innerHTML = '<span class="text-danger">账户已到期，群发功能已禁用</span>';
+        return;
+    }
     const templateOpt = document.getElementById('templateSelect').selectedOptions[0];
-    const courseOpt = document.getElementById('courseSelect').selectedOptions[0];
     const firstStudent = document.querySelector('.student-check:checked');
 
     const hasTemplate = !!templateOpt;
-    document.getElementById('sendBtn').disabled = !(
-        hasTemplate && document.querySelectorAll('.student-check:checked').length > 0
-    );
+    const canAct = hasTemplate && document.querySelectorAll('.student-check:checked').length > 0;
+    document.getElementById('generateBtn').disabled = !canAct;
+    document.getElementById('sendBtn').disabled = !canAct;
 
     const preview = document.getElementById('sendPreview');
     if (!templateOpt) {
@@ -286,9 +337,9 @@ function updatePreview() {
 
     let content = templateOpt.dataset.content;
     const studentName = firstStudent ? firstStudent.dataset.name : '张三';
-    const courseTime = courseOpt ? (courseOpt.dataset.time || '') : '周六 8:40-10:10';
-    const courseDate = courseOpt ? (courseOpt.dataset.date || '') : '2026-05-30';
-    const weekday = courseOpt ? (courseOpt.dataset.weekday || '') : '周六';
+    const courseTime = '周六 8:40-10:10';
+    const courseDate = '2026-05-30';
+    const weekday = '周六';
     const teacherName = '{{ current_user.display_name or current_user.username }}';
 
     content = content.replace(/\{name\}/g, '<mark>' + studentName + '</mark>');
@@ -296,8 +347,8 @@ function updatePreview() {
     content = content.replace(/\{date\}/g, courseDate);
     content = content.replace(/\{weekday\}/g, weekday);
     content = content.replace(/\{teacher\}/g, teacherName);
-    content = content.replace(/\{autocontent\}/g, '<span class="text-info">[发送时由AI根据课程概要生成]</span>');
-    content = content.replace(/\{performance\}/g, '<span class="text-success">[发送时由AI根据表现概要生成]</span>');
+    content = content.replace(/\{autocontent\}/g, '<span class="text-info">[点击"生成消息"由AI生成]</span>');
+    content = content.replace(/\{performance\}/g, '<span class="text-success">[点击"生成消息"由AI生成]</span>');
 
     preview.innerHTML = content.replace(/\n/g, '<br>');
 }
@@ -307,7 +358,6 @@ async function safeJson(resp) {
     try {
         return JSON.parse(text);
     } catch {
-        // 如果返回的是 HTML（如登录页重定向），尝试重新登录
         if (text.includes('<!doctype') || text.includes('<html')) {
             alert('会话已过期，请重新登录');
             window.location.href = '{{ url_for("auth.login") }}';
@@ -317,19 +367,16 @@ async function safeJson(resp) {
     }
 }
 
-async function startSend() {
+async function generateMessages() {
     const templateId = document.getElementById('templateSelect').value;
-    const courseId = document.getElementById('courseSelect').value;
     const studentIds = [...document.querySelectorAll('.student-check:checked')].map(cb => cb.value);
 
-    document.getElementById('sendBtn').disabled = true;
-    document.getElementById('sendBtn').innerHTML = '<span class="spinner-border spinner-border-sm"></span> 发送中...';
-    document.getElementById('sendProgress').classList.remove('d-none');
+    const btn = document.getElementById('generateBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 生成中...';
 
     const formData = new FormData();
     formData.append('template_id', templateId);
-    formData.append('app_name', document.getElementById('appNameInput').value.trim() || 'WeChat');
-    if (courseId) formData.append('course_id', courseId);
     studentIds.forEach(id => formData.append('student_ids', id));
 
     if (currentHasAutocontent) {
@@ -345,9 +392,98 @@ async function startSend() {
     }
 
     try {
+        const resp = await fetch('{{ url_for("send.generate") }}', { method: 'POST', body: formData, credentials: 'same-origin' });
+        const data = await safeJson(resp);
+        if (!data) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-lightning"></i> 生成消息'; return; }
+        if (resp.ok) {
+            currentGenerateId = data.generate_id;
+            displayGeneratedMessages(data.messages);
+        } else {
+            alert('生成失败: ' + (data.error || '未知错误'));
+        }
+    } catch (e) {
+        alert('网络错误: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-lightning"></i> 生成消息';
+    }
+}
+
+function displayGeneratedMessages(messages) {
+    const container = document.getElementById('generatedMessages');
+    const count = document.getElementById('generatedCount');
+    count.textContent = messages.length + '条';
+    container.innerHTML = messages.map(m => {
+        return `<div class="border rounded p-2 mb-2 bg-light">
+            <strong class="text-primary">${escHtml(m.student_name)}</strong>
+            <textarea class="form-control form-control-sm mt-1 generated-msg"
+                      data-student-id="${m.student_id}" rows="4"
+                      style="font-size: 0.85rem;">${escHtml(m.message)}</textarea>
+        </div>`;
+    }).join('');
+    document.getElementById('generatedReview').classList.remove('d-none');
+    document.getElementById('sendBtn').disabled = false;
+}
+
+function escHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function clearGenerated() {
+    currentGenerateId = null;
+    document.getElementById('generatedReview').classList.add('d-none');
+    document.getElementById('generatedMessages').innerHTML = '';
+}
+
+async function startSend() {
+    const templateId = document.getElementById('templateSelect').value;
+    const studentIds = [...document.querySelectorAll('.student-check:checked')].map(cb => cb.value);
+
+    if (!currentGenerateId) {
+        if (!confirm('尚未生成消息，将使用AI实时生成并发送。建议先"生成消息"检查内容。\n\n确定要直接发送吗？')) return;
+    }
+
+    document.getElementById('sendBtn').disabled = true;
+    document.getElementById('sendBtn').innerHTML = '<span class="spinner-border spinner-border-sm"></span> 发送中...';
+    document.getElementById('generateBtn').disabled = true;
+    document.getElementById('sendProgress').classList.remove('d-none');
+    document.getElementById('abortBtn').classList.remove('d-none');
+
+    const formData = new FormData();
+    formData.append('template_id', templateId);
+    formData.append('app_name', document.getElementById('appNameInput').value.trim() || 'WeChat');
+    studentIds.forEach(id => formData.append('student_ids', id));
+
+    // Send edited messages if user modified generated content
+    const editedTextareas = document.querySelectorAll('.generated-msg');
+    if (editedTextareas.length > 0) {
+        const editedMessages = [...editedTextareas].map(ta => ({
+            student_id: parseInt(ta.dataset.studentId),
+            message: ta.value,
+        }));
+        formData.append('messages_json', JSON.stringify(editedMessages));
+    } else if (currentGenerateId) {
+        formData.append('generate_id', currentGenerateId);
+    }
+
+    if (currentHasAutocontent && !currentGenerateId && editedTextareas.length === 0) {
+        formData.append('autocontent_description', document.getElementById('autocontentDescription').value);
+    }
+    if (currentHasPerformance && !currentGenerateId) {
+        studentIds.forEach(id => {
+            const input = document.getElementById('performance_' + id);
+            if (input && input.value.trim()) {
+                formData.append('performance_' + id, input.value.trim());
+            }
+        });
+    }
+
+    try {
         const resp = await fetch('{{ url_for("send.start") }}', { method: 'POST', body: formData, credentials: 'same-origin' });
         const data = await safeJson(resp);
-        if (!data) return;
+        if (!data) { resetSendBtn(); return; }
         if (resp.ok) {
             jobId = data.job_id;
             pollProgress();
@@ -361,6 +497,32 @@ async function startSend() {
     }
 }
 
+async function cancelSend() {
+    if (!jobId) return;
+    if (!confirm('确定要中断发送吗？已发送的消息无法撤回。')) return;
+
+    // Stop polling immediately and update UI
+    clearTimeout(pollTimer);
+    document.getElementById('progressText').textContent = '正在中断...';
+    document.getElementById('progressBar').classList.remove('progress-bar-animated');
+    document.getElementById('progressBar').classList.add('bg-warning');
+    document.getElementById('abortBtn').disabled = true;
+
+    try {
+        const resp = await fetch('/send/cancel/' + jobId, { method: 'POST', credentials: 'same-origin' });
+        const data = await safeJson(resp);
+        if (data && data.success) {
+            finishSend(true);
+        } else {
+            // Force status check even if cancel returned error
+            pollTimer = setTimeout(pollProgress, 500);
+        }
+    } catch (e) {
+        // Force status check on network error
+        pollTimer = setTimeout(pollProgress, 500);
+    }
+}
+
 function pollProgress() {
     if (!jobId) return;
     fetch('/send/status/' + jobId, { credentials: 'same-origin' })
@@ -369,29 +531,56 @@ function pollProgress() {
             if (!data) return;
             const pct = data.total > 0 ? Math.round(data.completed / data.total * 100) : 0;
             document.getElementById('progressBar').style.width = pct + '%';
-            document.getElementById('progressText').textContent = data.current ? '正在发送: ' + data.current : '';
+            document.getElementById('progressText').textContent = data.current || '准备中...';
             document.getElementById('progressCount').textContent =
                 '(' + data.completed + '/' + data.total + ', 失败: ' + data.failed + ')';
 
             if (data.status === 'done') {
-                document.getElementById('sendBtn').innerHTML = '<i class="bi bi-check-circle"></i> 发送完成';
-                document.getElementById('sendBtn').classList.remove('btn-primary');
-                document.getElementById('sendBtn').classList.add('btn-success');
-                document.getElementById('progressBar').classList.remove('progress-bar-animated');
-                document.getElementById('progressText').textContent = '发送完成！';
-                if (data.stitched_available) {
-                    document.getElementById('stitchedDownload').classList.remove('d-none');
-                }
+                finishSend(false);
                 return;
             }
-            pollTimer = setTimeout(pollProgress, 2000);
+            if (data.status === 'cancelled') {
+                finishSend(true);
+                return;
+            }
+            pollTimer = setTimeout(pollProgress, 1000);
         });
+}
+
+function finishSend(cancelled) {
+    clearTimeout(pollTimer);
+    document.getElementById('abortBtn').classList.add('d-none');
+    document.getElementById('progressBar').classList.remove('progress-bar-animated');
+    if (cancelled) {
+        document.getElementById('progressBar').classList.add('bg-warning');
+        document.getElementById('progressText').textContent = '发送已中断';
+        document.getElementById('sendBtn').innerHTML = '<i class="bi bi-x-circle"></i> 已中断';
+        document.getElementById('sendBtn').classList.remove('btn-primary');
+        document.getElementById('sendBtn').classList.add('btn-warning');
+    } else {
+        document.getElementById('sendBtn').innerHTML = '<i class="bi bi-check-circle"></i> 发送完成';
+        document.getElementById('sendBtn').classList.remove('btn-primary');
+        document.getElementById('sendBtn').classList.add('btn-success');
+        document.getElementById('progressText').textContent = '发送完成！';
+    }
+    // Check stitched availability
+    fetch('/send/status/' + jobId, { credentials: 'same-origin' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.stitched_available) {
+                document.getElementById('stitchedDownload').classList.remove('d-none');
+            }
+        }).catch(() => {});
 }
 
 function resetSendBtn() {
     document.getElementById('sendBtn').disabled = false;
     document.getElementById('sendBtn').innerHTML = '<i class="bi bi-send"></i> 发送通知';
+    document.getElementById('sendBtn').classList.remove('btn-success', 'btn-warning');
+    document.getElementById('sendBtn').classList.add('btn-primary');
+    document.getElementById('generateBtn').disabled = false;
     document.getElementById('sendProgress').classList.add('d-none');
+    document.getElementById('abortBtn').classList.add('d-none');
 }
 
 function downloadStitched() {
