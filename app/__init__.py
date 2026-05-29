@@ -36,6 +36,9 @@ def create_app(config_class=Config):
     def inject_user():
         teacher = session.get("teacher")
         if teacher:
+            expire_at = teacher.get("expire_at")
+            remaining_days = teacher.get("remaining_days")
+            is_expired = remaining_days is not None and remaining_days <= 0
             return {
                 "current_user": type("UserProxy", (), {
                     "is_authenticated": True,
@@ -44,6 +47,9 @@ def create_app(config_class=Config):
                     "id": teacher.get("id"),
                     "username": teacher.get("username", ""),
                     "display_name": teacher.get("display_name", ""),
+                    "expire_at": expire_at,
+                    "remaining_days": remaining_days,
+                    "is_expired": is_expired,
                 })()
             }
         return {
@@ -54,6 +60,9 @@ def create_app(config_class=Config):
                 "id": None,
                 "username": "",
                 "display_name": "",
+                "expire_at": None,
+                "remaining_days": None,
+                "is_expired": False,
             })()
         }
 

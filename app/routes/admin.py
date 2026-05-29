@@ -26,12 +26,17 @@ def create():
             flash("用户名和密码不能为空", "danger")
             return render_template("admin/teacher_form.html", teacher=None)
 
+        data = {
+            "username": username,
+            "password": password,
+            "display_name": display_name or None,
+        }
+        duration_months = request.form.get("duration_months", "").strip()
+        if duration_months:
+            data["duration_months"] = int(duration_months)
+
         try:
-            api.admin_create_teacher({
-                "username": username,
-                "password": password,
-                "display_name": display_name or None,
-            })
+            api.admin_create_teacher(data)
             flash(f"教师账号 {username} 创建成功", "success")
             return redirect(url_for("admin.index"))
         except Exception as e:
@@ -63,11 +68,16 @@ def edit(id):
             flash("不能禁用自己的账号", "danger")
             return render_template("admin/teacher_form.html", teacher=teacher)
 
+        data = {
+            "display_name": display_name or None,
+            "is_active": is_active,
+        }
+        duration_months = request.form.get("duration_months", "").strip()
+        if duration_months:
+            data["duration_months"] = int(duration_months)
+
         try:
-            api.admin_update_teacher(id, {
-                "display_name": display_name or None,
-                "is_active": is_active,
-            })
+            api.admin_update_teacher(id, data)
             flash(f"教师 {teacher['username']} 已更新", "success")
             return redirect(url_for("admin.index"))
         except Exception:
