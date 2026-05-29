@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db/connection');
 const authMiddleware = require('../middleware/auth');
+const expireCheckMiddleware = require('../middleware/expireCheck');
 const { sendJson, sendError } = require('../utils/response');
 const { WEEKDAY_OPTIONS, WEEKDAY_MAP } = require('../utils/weekday');
 
@@ -26,8 +27,8 @@ router.get('/', (req, res) => {
 });
 
 // POST /api/groups
-router.post('/', (req, res) => {
-  const { name, day_of_week, start_time, end_time, weeks_ahead } = req.body;
+router.post('/', expireCheckMiddleware, (req, res) => {
+  const { name, day_of_week, start_time, end_time } = req.body;
   if (!name || !day_of_week || !start_time || !end_time) {
     return sendError(res, '所有字段不能为空');
   }
@@ -40,8 +41,6 @@ router.post('/', (req, res) => {
   ).run(req.teacherId, name.trim(), day_of_week, start_time, end_time);
 
   const gid = result.lastInsertRowid;
-  generateCourses(gid, req.teacherId, day_of_week, weeks_ahead || 8);
-
   const row = db.prepare('SELECT * FROM course_groups WHERE id = ?').get(gid);
   sendJson(res, groupWithCount(row), 201);
 });
@@ -56,7 +55,7 @@ router.get('/:id', (req, res) => {
 });
 
 // PUT /api/groups/:id
-router.put('/:id', (req, res) => {
+router.put('/:id', expireCheckMiddleware, (req, res) => {
   const row = db.prepare(
     'SELECT * FROM course_groups WHERE id = ? AND teacher_id = ?'
   ).get(req.params.id, req.teacherId);
@@ -76,7 +75,7 @@ router.put('/:id', (req, res) => {
 });
 
 // DELETE /api/groups/:id
-router.delete('/:id', (req, res) => {
+router.delete('/:id', expireCheckMiddleware, (req, res) => {
   const row = db.prepare(
     'SELECT * FROM course_groups WHERE id = ? AND teacher_id = ?'
   ).get(req.params.id, req.teacherId);
@@ -99,7 +98,7 @@ router.get('/:gid/courses', (req, res) => {
 });
 
 // POST /api/groups/:gid/courses/generate
-router.post('/:gid/courses/generate', (req, res) => {
+router.post('/:gid/courses/generate', expireCheckMiddleware, (req, res) => {
   const group = db.prepare(
     'SELECT * FROM course_groups WHERE id = ? AND teacher_id = ?'
   ).get(req.params.gid, req.teacherId);

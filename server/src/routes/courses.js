@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db/connection');
 const authMiddleware = require('../middleware/auth');
+const expireCheckMiddleware = require('../middleware/expireCheck');
 const { sendJson, sendError } = require('../utils/response');
 const { WEEKDAY_OPTIONS } = require('../utils/weekday');
 
@@ -8,7 +9,7 @@ const router = express.Router();
 router.use(authMiddleware);
 
 // PUT /api/courses/:id/status
-router.put('/:id/status', (req, res) => {
+router.put('/:id/status', expireCheckMiddleware, (req, res) => {
   const course = db.prepare(
     'SELECT * FROM courses WHERE id = ? AND teacher_id = ?'
   ).get(req.params.id, req.teacherId);

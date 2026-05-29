@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db/connection');
 const authMiddleware = require('../middleware/auth');
+const expireCheckMiddleware = require('../middleware/expireCheck');
 const { sendJson, sendError } = require('../utils/response');
 
 const router = express.Router();
@@ -48,7 +49,7 @@ router.get('/', (req, res) => {
 });
 
 // POST /api/students
-router.post('/', (req, res) => {
+router.post('/', expireCheckMiddleware, (req, res) => {
   const name = (req.body.name || '').trim();
   if (!name) return sendError(res, '学员姓名不能为空');
 
@@ -77,7 +78,7 @@ router.get('/:id', (req, res) => {
 });
 
 // PUT /api/students/:id
-router.put('/:id', (req, res) => {
+router.put('/:id', expireCheckMiddleware, (req, res) => {
   const row = db.prepare(
     'SELECT * FROM students WHERE id = ? AND teacher_id = ?'
   ).get(req.params.id, req.teacherId);
@@ -102,7 +103,7 @@ router.put('/:id', (req, res) => {
 });
 
 // DELETE /api/students/:id
-router.delete('/:id', (req, res) => {
+router.delete('/:id', expireCheckMiddleware, (req, res) => {
   const row = db.prepare(
     'SELECT * FROM students WHERE id = ? AND teacher_id = ?'
   ).get(req.params.id, req.teacherId);
@@ -113,7 +114,7 @@ router.delete('/:id', (req, res) => {
 });
 
 // POST /api/students/:id/move
-router.post('/:id/move', (req, res) => {
+router.post('/:id/move', expireCheckMiddleware, (req, res) => {
   const row = db.prepare(
     'SELECT * FROM students WHERE id = ? AND teacher_id = ?'
   ).get(req.params.id, req.teacherId);

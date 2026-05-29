@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db/connection');
 const authMiddleware = require('../middleware/auth');
+const expireCheckMiddleware = require('../middleware/expireCheck');
 const { sendJson } = require('../utils/response');
 
 const router = express.Router();
@@ -21,7 +22,7 @@ router.get('/', (req, res) => {
 });
 
 // PUT /api/settings
-router.put('/', (req, res) => {
+router.put('/', expireCheckMiddleware, (req, res) => {
   getOrCreateSettings(req.teacherId);
 
   const allowedFields = ['ai_api_key', 'ai_endpoint', 'ai_model', 'wechat_delay_ms', 'target_app_name'];

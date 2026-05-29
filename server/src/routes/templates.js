@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db/connection');
 const authMiddleware = require('../middleware/auth');
+const expireCheckMiddleware = require('../middleware/expireCheck');
 const { sendJson, sendError } = require('../utils/response');
 
 const router = express.Router();
@@ -15,7 +16,7 @@ router.get('/', (req, res) => {
 });
 
 // POST /api/templates
-router.post('/', (req, res) => {
+router.post('/', expireCheckMiddleware, (req, res) => {
   const name = (req.body.name || '').trim();
   const content = (req.body.content || '').trim();
   if (!name || !content) return sendError(res, '模板名称和内容不能为空');
@@ -38,7 +39,7 @@ router.get('/:id', (req, res) => {
 });
 
 // PUT /api/templates/:id
-router.put('/:id', (req, res) => {
+router.put('/:id', expireCheckMiddleware, (req, res) => {
   const row = db.prepare(
     'SELECT * FROM templates WHERE id = ? AND teacher_id = ?'
   ).get(req.params.id, req.teacherId);
@@ -59,7 +60,7 @@ router.put('/:id', (req, res) => {
 });
 
 // DELETE /api/templates/:id
-router.delete('/:id', (req, res) => {
+router.delete('/:id', expireCheckMiddleware, (req, res) => {
   const row = db.prepare(
     'SELECT * FROM templates WHERE id = ? AND teacher_id = ?'
   ).get(req.params.id, req.teacherId);
