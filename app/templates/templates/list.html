@@ -3,9 +3,11 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h4><i class="bi bi-chat-square-text"></i> 通知模板</h4>
+    {% if not current_user.is_expired or current_user.is_admin %}
     <a href="{{ url_for('templates.create') }}" class="btn btn-primary">
         <i class="bi bi-plus-lg"></i> 创建模板
     </a>
+    {% endif %}
 </div>
 
 {% if templates %}
@@ -23,6 +25,7 @@
                     更新于 {{ t.updated_at | date_fmt('%Y-%m-%d %H:%M') if t.updated_at else '-' }}
                 </p>
                 <div class="btn-group">
+                    {% if not current_user.is_expired or current_user.is_admin %}
                     <a href="{{ url_for('templates.edit', id=t.id) }}" class="btn btn-sm btn-outline-primary">
                         <i class="bi bi-pencil"></i> 编辑
                     </a>
@@ -32,6 +35,7 @@
                             <i class="bi bi-trash"></i> 删除
                         </button>
                     </form>
+                    {% endif %}
                 </div>
             </div>
         </div>

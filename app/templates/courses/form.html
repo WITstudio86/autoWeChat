@@ -6,6 +6,7 @@
         <h4 class="mb-3">{% if group %}编辑课程分组{% else %}创建课程分组{% endif %}</h4>
         <div class="card shadow-sm">
             <div class="card-body p-4">
+                {% if not current_user.is_expired or current_user.is_admin %}
                 <form method="POST">
                     <div class="mb-3">
                         <label for="name" class="form-label">分组名称</label>
@@ -43,14 +44,13 @@
                     </button>
                     <a href="{{ url_for('courses.list') }}" class="btn btn-outline-secondary">返回</a>
                 </form>
+                {% else %}
+                <div class="alert alert-danger">账户已到期，无法执行此操作。</div>
+                <a href="{{ url_for('courses.list') }}" class="btn btn-outline-secondary mt-2">返回</a>
+                {% endif %}
             </div>
         </div>
 
-        {% if not group %}
-        <div class="alert alert-info mt-3 small">
-            <i class="bi bi-info-circle"></i> 创建分组后将自动生成未来8周的课程
-        </div>
-        {% endif %}
     </div>
 </div>
 {% endblock %}

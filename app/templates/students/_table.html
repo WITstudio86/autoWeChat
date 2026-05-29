@@ -21,6 +21,7 @@
                 <td class="small">{{ s.group_time_display or '-' }}</td>
                 <td>{{ s.phone or '-' }}</td>
                 <td>
+                    {% if not current_user.is_expired or current_user.is_admin %}
                     <a href="{{ url_for('students.edit', id=s.id) }}" class="btn btn-sm btn-outline-primary" title="编辑">
                         <i class="bi bi-pencil"></i>
                     </a>
@@ -35,6 +36,7 @@
                             <i class="bi bi-trash"></i>
                         </button>
                     </form>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}
