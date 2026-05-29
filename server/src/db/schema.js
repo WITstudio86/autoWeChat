@@ -99,6 +99,7 @@ function createTables() {
   // Migration: add columns that may not exist in older databases
   const migrations = [
     "ALTER TABLE settings ADD COLUMN target_app_name TEXT DEFAULT 'WeChat'",
+    "ALTER TABLE teachers ADD COLUMN expire_at TEXT",
   ];
   for (const sql of migrations) {
     try { db.exec(sql); } catch (_) { /* column already exists */ }
