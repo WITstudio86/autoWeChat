@@ -28,7 +28,7 @@ router.get('/', (req, res) => {
 
 // POST /api/groups
 router.post('/', expireCheckMiddleware, (req, res) => {
-  const { name, day_of_week, start_time, end_time } = req.body;
+  const { name, day_of_week, start_time, end_time, weeks_ahead } = req.body;
   if (!name || !day_of_week || !start_time || !end_time) {
     return sendError(res, '所有字段不能为空');
   }
@@ -41,6 +41,8 @@ router.post('/', expireCheckMiddleware, (req, res) => {
   ).run(req.teacherId, name.trim(), day_of_week, start_time, end_time);
 
   const gid = result.lastInsertRowid;
+  generateCourses(gid, req.teacherId, day_of_week, weeks_ahead || 8);
+
   const row = db.prepare('SELECT * FROM course_groups WHERE id = ?').get(gid);
   sendJson(res, groupWithCount(row), 201);
 });
