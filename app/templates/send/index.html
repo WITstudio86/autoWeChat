@@ -4,7 +4,7 @@
 <h4 class="mb-1"><i class="bi bi-send"></i> 批量发送通知</h4>
 <p class="text-muted small mb-3">选择模板和学员，填写概要后 AI 自动扩展生成内容。发送期间请勿操作键盘和鼠标。</p>
 
-{% if current_user.is_expired %}
+{% if not current_user.is_admin and current_user.is_expired %}
 <div class="alert alert-danger">
   <i class="bi bi-lock-fill"></i> 您的账户已到期，群发功能已禁用。请联系管理员续期。
 </div>
