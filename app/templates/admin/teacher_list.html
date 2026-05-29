@@ -18,8 +18,10 @@
                     <th>显示名称</th>
                     <th>角色</th>
                     <th>状态</th>
+                    <th>到期时间</th>
+                    <th>剩余</th>
                     <th>创建时间</th>
-                    <th style="width: 240px;">操作</th>
+                    <th style="width: 200px;">操作</th>
                 </tr>
             </thead>
             <tbody>
@@ -40,6 +42,24 @@
                         <span class="badge bg-success">启用</span>
                         {% else %}
                         <span class="badge bg-warning">禁用</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if t.expire_at %}
+                            {{ t.expire_at | date_fmt('%Y-%m-%d') }}
+                        {% else %}
+                            <span class="badge bg-info">永久</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if t.remaining_days is none %}
+                            <span class="text-muted">-</span>
+                        {% elif t.remaining_days <= 0 %}
+                            <span class="badge bg-danger">已过期</span>
+                        {% elif t.remaining_days <= 7 %}
+                            <span class="badge bg-warning text-dark">{{ t.remaining_days }}天</span>
+                        {% else %}
+                            <span class="text-success">{{ t.remaining_days }}天</span>
                         {% endif %}
                     </td>
                     <td>{{ t.created_at | date_fmt('%Y-%m-%d %H:%M') if t.created_at else '-' }}</td>

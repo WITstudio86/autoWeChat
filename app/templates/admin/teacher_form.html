@@ -23,6 +23,16 @@
                         <input type="password" class="form-control" id="password" name="password"
                                required minlength="6" placeholder="至少6位">
                     </div>
+                    <div class="mb-3">
+                        <label for="duration_months" class="form-label">有效期</label>
+                        <select class="form-select" id="duration_months" name="duration_months">
+                            <option value="">永久有效</option>
+                            <option value="1">1个月</option>
+                            <option value="3">3个月</option>
+                            <option value="6">6个月</option>
+                            <option value="12">1年</option>
+                        </select>
+                    </div>
                     {% endif %}
 
                     <div class="mb-3">
@@ -37,6 +47,30 @@
                         <input type="checkbox" class="form-check-input" id="is_active" name="is_active"
                                {% if teacher.is_active %}checked{% endif %}>
                         <label for="is_active" class="form-check-label">启用账号</label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">当前到期时间</label>
+                        <p class="form-control-plaintext">
+                            {% if teacher.expire_at %}
+                                {{ teacher.expire_at | date_fmt('%Y-%m-%d') }}
+                                {% if teacher.remaining_days is not none and teacher.remaining_days <= 0 %}
+                                    <span class="badge bg-danger">已过期</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge bg-info">永久有效</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="mb-3">
+                        <label for="duration_months" class="form-label">续期</label>
+                        <select class="form-select" id="duration_months" name="duration_months">
+                            <option value="">不续期</option>
+                            <option value="1">续期1个月</option>
+                            <option value="3">续期3个月</option>
+                            <option value="6">续期6个月</option>
+                            <option value="12">续期1年</option>
+                        </select>
+                        <div class="form-text">续期时长从当前到期日起算，如已过期则从今天起算</div>
                     </div>
                     {% endif %}
 
