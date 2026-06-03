@@ -28,8 +28,8 @@ def render_message(
         "{date}": course_date,
         "{weekday}": weekday,
         "{teacher}": teacher_name,
-        "{autocontent}": autocontent or "[发送时填写课程概要自动生成]",
-        "{performance}": performance or "[发送时填写表现概要自动生成]",
+        "{autocontent}": autocontent or "",
+        "{performance}": performance or "",
     }
     for var, val in replacements.items():
         result = result.replace(var, val)

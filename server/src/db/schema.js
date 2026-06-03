@@ -94,12 +94,26 @@ function createTables() {
       target_app_name TEXT DEFAULT 'WeChat',
       FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS ai_usage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      teacher_id INTEGER NOT NULL,
+      prompt_tokens INTEGER NOT NULL DEFAULT 0,
+      completion_tokens INTEGER NOT NULL DEFAULT 0,
+      total_tokens INTEGER NOT NULL DEFAULT 0,
+      model TEXT NOT NULL DEFAULT '',
+      purpose TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
+    );
   `);
 
   // Migration: add columns that may not exist in older databases
   const migrations = [
     "ALTER TABLE settings ADD COLUMN target_app_name TEXT DEFAULT 'WeChat'",
     "ALTER TABLE teachers ADD COLUMN expire_at TEXT",
+    "ALTER TABLE teachers ADD COLUMN max_groups INTEGER",
+    "ALTER TABLE teachers ADD COLUMN max_students_per_group INTEGER",
   ];
   for (const sql of migrations) {
     try { db.exec(sql); } catch (_) { /* column already exists */ }

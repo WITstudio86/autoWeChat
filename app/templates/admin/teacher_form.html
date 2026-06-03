@@ -42,6 +42,24 @@
                                placeholder="留空使用用户名">
                     </div>
 
+                    {% if not teacher %}
+                    <hr>
+                    <h6 class="mb-3">限额设置（留空 = 不限）</h6>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label for="max_groups" class="form-label">最大班级数</label>
+                            <input type="number" class="form-control" id="max_groups" name="max_groups"
+                                   min="1" placeholder="不限">
+                        </div>
+                        <div class="col-6">
+                            <label for="max_students_per_group" class="form-label">每班最大人数</label>
+                            <input type="number" class="form-control" id="max_students_per_group"
+                                   name="max_students_per_group" min="1" placeholder="不限">
+                        </div>
+                    </div>
+                    <hr>
+                    {% endif %}
+
                     {% if teacher %}
                     <div class="mb-3 form-check">
                         <input type="checkbox" class="form-check-input" id="is_active" name="is_active"
@@ -71,6 +89,21 @@
                             <option value="12">续期1年</option>
                         </select>
                         <div class="form-text">续期时长从当前到期日起算，如已过期则从今天起算</div>
+                    </div>
+                    <hr>
+                    <h6 class="mb-3">限额设置（留空 = 不限）</h6>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label for="max_groups" class="form-label">最大班级数</label>
+                            <input type="number" class="form-control" id="max_groups" name="max_groups"
+                                   min="1" value="{{ teacher.max_groups or '' }}" placeholder="不限">
+                        </div>
+                        <div class="col-6">
+                            <label for="max_students_per_group" class="form-label">每班最大人数</label>
+                            <input type="number" class="form-control" id="max_students_per_group"
+                                   name="max_students_per_group" min="1"
+                                   value="{{ teacher.max_students_per_group or '' }}" placeholder="不限">
+                        </div>
                     </div>
                     {% endif %}
 

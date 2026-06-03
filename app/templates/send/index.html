@@ -68,6 +68,28 @@
             </div>
         </div>
 
+        {# Attachments #}
+        <div class="card shadow-sm mb-3">
+            <div class="card-header"><i class="bi bi-paperclip"></i> 附件</div>
+            <div class="card-body p-2">
+                <div class="d-flex gap-2 mb-2">
+                    <label class="btn btn-outline-secondary btn-sm mb-0">
+                        <i class="bi bi-folder2-open"></i> 选择文件
+                        <input type="file" id="attachmentFileInput" multiple
+                               accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                               style="display: none;" onchange="onFileSelected()">
+                    </label>
+                </div>
+                <div id="attachmentPasteZone" class="border rounded p-2 text-center small text-muted"
+                     style="min-height: 60px; cursor: pointer; border-style: dashed !important;"
+                     tabindex="0"
+                     onclick="document.getElementById('attachmentFileInput').click()">
+                    <i class="bi bi-clipboard"></i> 点击选择文件，或在此处 <kbd>⌘V</kbd> 粘贴图片
+                </div>
+                <div id="attachmentList" class="mt-2"></div>
+            </div>
+        </div>
+
         {# Course content description (shown when template has {autocontent}) #}
         <div class="card shadow-sm mb-3 d-none" id="autocontentCard">
             <div class="card-header">
@@ -455,6 +477,7 @@ async function startSend() {
     formData.append('template_id', templateId);
     formData.append('app_name', document.getElementById('appNameInput').value.trim() || 'WeChat');
     studentIds.forEach(id => formData.append('student_ids', id));
+    attachmentPaths.forEach(p => formData.append('attachment_paths[]', p));
 
     // Send edited messages if user modified generated content
     const editedTextareas = document.querySelectorAll('.generated-msg');
@@ -588,5 +611,103 @@ function downloadStitched() {
         window.location.href = '/send/stitched/' + jobId;
     }
 }
+
+// ---- Attachment handling ----
+let attachmentPaths = [];
+
+function onFileSelected() {
+    const input = document.getElementById('attachmentFileInput');
+    if (!input.files.length) return;
+    for (const file of input.files) {
+        uploadFile(file);
+    }
+    input.value = '';
+}
+
+async function uploadFile(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+        const resp = await fetch('{{ url_for("send.upload_attachment") }}', {
+            method: 'POST', body: formData, credentials: 'same-origin'
+        });
+        const data = await safeJson(resp);
+        if (data && data.path) {
+            attachmentPaths.push(data.path);
+            addAttachmentToList(data.filename, data.path);
+        }
+    } catch (e) {
+        alert('文件上传失败: ' + e.message);
+    }
+}
+
+async function uploadClipboardImage(blob) {
+    const reader = new FileReader();
+    reader.onload = async function() {
+        try {
+            const resp = await fetch('{{ url_for("send.upload_clipboard") }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: reader.result }),
+                credentials: 'same-origin'
+            });
+            const data = await safeJson(resp);
+            if (data && data.path) {
+                attachmentPaths.push(data.path);
+                addAttachmentToList(data.filename, data.path, reader.result);
+            }
+        } catch (e) {
+            alert('图片粘贴失败: ' + e.message);
+        }
+    };
+    reader.readAsDataURL(blob);
+}
+
+function addAttachmentToList(filename, path, previewUrl) {
+    const list = document.getElementById('attachmentList');
+    const item = document.createElement('div');
+    item.className = 'd-flex align-items-center border rounded p-1 mb-1 bg-light';
+    item.dataset.path = path;
+
+    const isImage = /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename);
+    let previewHtml = '';
+    if (isImage && previewUrl) {
+        previewHtml = `<img src="${previewUrl}" class="me-2 rounded" style="width: 32px; height: 32px; object-fit: cover;">`;
+    } else {
+        previewHtml = `<i class="bi bi-file-earmark me-2 text-secondary" style="font-size: 1.2rem;"></i>`;
+    }
+
+    item.innerHTML = `
+        ${previewHtml}
+        <small class="flex-grow-1 text-truncate">${escHtml(filename)}</small>
+        <button class="btn btn-sm btn-outline-danger border-0" onclick="removeAttachment(this, '${escHtml(path)}')"
+                title="移除"><i class="bi bi-x"></i></button>
+    `;
+    list.appendChild(item);
+}
+
+function removeAttachment(btn, path) {
+    attachmentPaths = attachmentPaths.filter(p => p !== path);
+    btn.closest('.d-flex').remove();
+}
+
+// Clipboard paste handler
+document.addEventListener('DOMContentLoaded', function() {
+    const pasteZone = document.getElementById('attachmentPasteZone');
+    if (pasteZone) {
+        pasteZone.addEventListener('paste', function(e) {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+            for (const item of items) {
+                if (item.type.startsWith('image/')) {
+                    e.preventDefault();
+                    const blob = item.getAsFile();
+                    uploadClipboardImage(blob);
+                    return;
+                }
+            }
+        });
+    }
+});
 </script>
 {% endblock %}

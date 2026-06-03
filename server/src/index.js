@@ -25,6 +25,7 @@ app.use('/api/send-logs', require('./routes/sendLogs'));
 app.use('/api/stats', require('./routes/stats'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/ai', require('./routes/ai'));
 
 // 404
 app.use((req, res) => {

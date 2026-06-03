@@ -53,6 +53,20 @@ router.post('/', expireCheckMiddleware, (req, res) => {
   const name = (req.body.name || '').trim();
   if (!name) return sendError(res, '学员姓名不能为空');
 
+  // Check max_students_per_group limit
+  const groupId = req.body.course_group_id || null;
+  if (groupId) {
+    const teacher = db.prepare('SELECT max_students_per_group FROM teachers WHERE id = ?').get(req.teacherId);
+    if (teacher && teacher.max_students_per_group) {
+      const currentCount = db.prepare(
+        'SELECT COUNT(*) as count FROM students WHERE course_group_id = ?'
+      ).get(groupId);
+      if (currentCount.count >= teacher.max_students_per_group) {
+        return sendError(res, `该班级学生人数已达上限（${teacher.max_students_per_group}人）`, 403);
+      }
+    }
+  }
+
   const result = db.prepare(
     'INSERT INTO students (teacher_id, name, parent_wechat, course_group_id, phone, notes) VALUES (?,?,?,?,?,?)'
   ).run(

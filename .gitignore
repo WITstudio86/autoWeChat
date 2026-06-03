@@ -31,3 +31,8 @@ Thumbs.db
 
 # Database files
 data/
+
+# Homepage download binaries (user places compiled apps here)
+homepage/download/*.app
+homepage/download/*.exe
+!homepage/download/.gitkeep

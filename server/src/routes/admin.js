@@ -26,6 +26,24 @@ router.get('/teachers', (req, res) => {
   sendJson(res, result);
 });
 
+// GET /api/admin/usage  — monthly token usage per teacher
+router.get('/usage', (req, res) => {
+  const rows = db.prepare(`
+    SELECT
+      u.teacher_id,
+      t.display_name AS teacher_name,
+      t.username,
+      SUM(u.total_tokens) AS total_tokens,
+      COUNT(*) AS calls
+    FROM ai_usage u
+    JOIN teachers t ON t.id = u.teacher_id
+    WHERE strftime('%Y-%m', u.created_at) = strftime('%Y-%m', 'now')
+    GROUP BY u.teacher_id
+    ORDER BY total_tokens DESC
+  `).all();
+  sendJson(res, rows);
+});
+
 // POST /api/admin/teachers
 router.post('/teachers', (req, res) => {
   const username = (req.body.username || '').trim();
@@ -35,7 +53,6 @@ router.post('/teachers', (req, res) => {
   const existing = db.prepare('SELECT id FROM teachers WHERE username = ?').get(username);
   if (existing) return sendError(res, '用户名已存在', 409);
 
-  // Calculate expire_at from duration_months (1, 3, 6, 12)
   let expire_at = null;
   const durationMonths = parseInt(req.body.duration_months, 10);
   if (durationMonths && [1, 3, 6, 12].includes(durationMonths)) {
@@ -44,9 +61,12 @@ router.post('/teachers', (req, res) => {
     expire_at = exp.toISOString();
   }
 
+  const maxGroups = req.body.max_groups ? parseInt(req.body.max_groups, 10) || null : null;
+  const maxStudents = req.body.max_students_per_group ? parseInt(req.body.max_students_per_group, 10) || null : null;
+
   const result = db.prepare(
-    'INSERT INTO teachers (username, password_hash, display_name, expire_at) VALUES (?,?,?,?)'
-  ).run(username, hashPassword(password), req.body.display_name || null, expire_at);
+    'INSERT INTO teachers (username, password_hash, display_name, expire_at, max_groups, max_students_per_group) VALUES (?,?,?,?,?,?)'
+  ).run(username, hashPassword(password), req.body.display_name || null, expire_at, maxGroups, maxStudents);
 
   const row = db.prepare('SELECT * FROM teachers WHERE id = ?').get(result.lastInsertRowid);
   const { password_hash, ...teacher } = row;
@@ -74,7 +94,16 @@ router.put('/teachers/:id', (req, res) => {
     values.push(req.body.is_active ? 1 : 0);
   }
 
-  // Handle duration_months: extend from current expire_at, or from now if not set/expired
+  if ('max_groups' in req.body) {
+    updates.push('max_groups = ?');
+    values.push(req.body.max_groups ? parseInt(req.body.max_groups, 10) || null : null);
+  }
+
+  if ('max_students_per_group' in req.body) {
+    updates.push('max_students_per_group = ?');
+    values.push(req.body.max_students_per_group ? parseInt(req.body.max_students_per_group, 10) || null : null);
+  }
+
   const durationMonths = parseInt(req.body.duration_months, 10);
   if (durationMonths && [1, 3, 6, 12].includes(durationMonths)) {
     const baseDate = row.expire_at && new Date(row.expire_at) > new Date()
@@ -93,6 +122,17 @@ router.put('/teachers/:id', (req, res) => {
   const updated = db.prepare('SELECT * FROM teachers WHERE id = ?').get(req.params.id);
   const { password_hash, ...teacher } = updated;
   sendJson(res, teacher);
+});
+
+// POST /api/admin/teachers/:id/toggle-active
+router.post('/teachers/:id/toggle-active', (req, res) => {
+  const row = db.prepare('SELECT * FROM teachers WHERE id = ?').get(req.params.id);
+  if (!row) return sendError(res, '教师不存在', 404);
+  if (row.is_admin) return sendError(res, '不能禁用管理员账号');
+
+  const newActive = row.is_active ? 0 : 1;
+  db.prepare('UPDATE teachers SET is_active = ? WHERE id = ?').run(newActive, req.params.id);
+  sendJson(res, { is_active: newActive, message: newActive ? '已启用' : '已禁用' });
 });
 
 // DELETE /api/admin/teachers/:id

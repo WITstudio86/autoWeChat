@@ -1,7 +1,10 @@
 import hashlib
+import json
 import os
 import time
 import uuid
+import base64
+import tempfile
 import threading
 from flask import Blueprint, render_template, request, jsonify, send_file, session, current_app
 from app.middleware import login_required, api_login_required
@@ -15,13 +18,14 @@ send_bp = Blueprint("send", __name__, url_prefix="/send")
 
 # In-memory job tracking
 _jobs = {}
+_generated = {}
 
 
 def _run_send_job(job_id, teacher_name, template, students,
                   autocontent_description, performance_notes,
-                  course_time, course_date_str, weekday_str, course_id,
+                  pre_generated_messages,
                   jwt_token, server_base_url, instance_path,
-                  app_name, delay_ms):
+                  app_name, delay_ms, attachment_paths=None):
     """Background thread: generate AI content, send WeChat messages, capture screenshots."""
     job = _jobs.get(job_id)
     if not job:
@@ -37,43 +41,59 @@ def _run_send_job(job_id, teacher_name, template, students,
         **(extra or {}),
     }
 
-    # 1. Generate autocontent once for all students
-    autocontent = ""
-    if autocontent_description:
-        autocontent = generate_autocontent(autocontent_description)
+    # Use pre-generated messages if available, otherwise generate AI content
+    if pre_generated_messages:
+        messages_map = {str(m["student_id"]): m["message"] for m in pre_generated_messages}
+    else:
+        messages_map = {}
+        # 1. Generate autocontent once for all students
+        autocontent = ""
+        if autocontent_description:
+            autocontent = generate_autocontent(autocontent_description)
+
+        for student in students:
+            sid = str(student["id"])
+            performance = ""
+            if performance_notes and sid in performance_notes:
+                performance = generate_performance(student["name"], performance_notes[sid],
+                                                     course_context=autocontent_description)
+
+            message = render_message(
+                template_content=template["content"],
+                student_name=student["name"],
+                course_time="",
+                course_date="",
+                weekday="",
+                teacher_name=teacher_name,
+                autocontent=autocontent,
+                performance=performance,
+            )
+            messages_map[sid] = message
 
     screenshot_paths = []
 
-    for student in students:
+    for i, student in enumerate(students):
         if job.get("_cancelled"):
             break
 
-        job["current_student"] = student["name"]
-
-        # 2. Generate performance note for this student
-        performance = ""
         sid = str(student["id"])
-        if performance_notes and sid in performance_notes:
-            performance = generate_performance(student["name"], performance_notes[sid])
+        job["current_student"] = f"({i + 1}/{len(students)}) {student['name']}"
 
-        # 3. Render message
-        message = render_message(
-            template_content=template["content"],
-            student_name=student["name"],
-            course_time=course_time,
-            course_date=course_date_str,
-            weekday=weekday_str,
-            teacher_name=teacher_name,
-            autocontent=autocontent,
-            performance=performance,
-        )
+        # Get message from pre-generated map
+        message = messages_map.get(sid, "")
+        if not message:
+            job["completed_count"] += 1
+            job["failed_count"] += 1
+            continue
 
-        # 4. Send via WeChat
+        # Send via WeChat
         status = "success"
         error = None
         contact = student.get("parent_wechat") or student["name"]
+        job["current_student"] = f"({i + 1}/{len(students)}) 发送中: {student['name']}"
         try:
-            send_message(contact, message, delay_ms=delay_ms, app_name=app_name)
+            send_message(contact, message, delay_ms=delay_ms, app_name=app_name,
+                             attachments=attachment_paths)
         except WeChatSendError as e:
             status = "failed"
             error = str(e)
@@ -81,9 +101,10 @@ def _run_send_job(job_id, teacher_name, template, students,
             status = "failed"
             error = str(e)
 
-        # 5. Capture screenshot after send
+        # Capture screenshot after send
         screenshot_path = None
         if status == "success":
+            job["current_student"] = f"({i + 1}/{len(students)}) 截图中: {student['name']}"
             screenshot_dir = os.path.join(instance_path, "screenshots")
             os.makedirs(screenshot_dir, exist_ok=True)
             filepath = os.path.join(screenshot_dir, f"{job_id}_{student['id']}.png")
@@ -91,11 +112,11 @@ def _run_send_job(job_id, teacher_name, template, students,
                 screenshot_path = filepath
                 screenshot_paths.append(filepath)
 
-        # 6. Save SendLog via Node.js API
+        # Save SendLog via Node.js API
         log_data = {
             "student_id": student["id"],
             "template_id": template["id"],
-            "course_id": course_id,
+            "course_id": None,
             "message_content": message,
             "status": status,
             "error_message": error,
@@ -110,9 +131,9 @@ def _run_send_job(job_id, teacher_name, template, students,
         if status == "failed":
             job["failed_count"] += 1
 
-        time.sleep(1)
+        time.sleep(0.5)
 
-    # 7. Stitch screenshots into one long image
+    # Stitch screenshots into one long image
     if screenshot_paths:
         stitch_dir = os.path.join(instance_path, "stitched")
         os.makedirs(stitch_dir, exist_ok=True)
@@ -120,8 +141,42 @@ def _run_send_job(job_id, teacher_name, template, students,
         stitch_images(screenshot_paths, stitch_path)
         job["stitched_path"] = stitch_path
 
-    job["status"] = "done"
+    # Switch back to browser so user can see results
+    _activate_browser(job.get("_browser"))
+
+    if not job.get("_cancelled"):
+        job["status"] = "done"
     job["current_student"] = ""
+
+
+def _detect_browser(user_agent):
+    """Map User-Agent string to macOS app name for open -a."""
+    ua = user_agent.lower()
+    if "edg/" in ua:
+        return "Microsoft Edge"
+    if "chrome/" in ua:
+        return "Google Chrome"
+    if "safari/" in ua and "chrome/" not in ua:
+        return "Safari"
+    if "firefox/" in ua:
+        return "Firefox"
+    return None
+
+
+def _activate_browser(browser_name=None):
+    """Bring the browser back to front after sending completes."""
+    import subprocess as sp
+    import platform
+    if platform.system() != "Darwin":
+        return
+    candidates = []
+    if browser_name:
+        candidates.append(browser_name)
+    candidates.extend(["Google Chrome", "Safari", "Microsoft Edge", "Firefox"])
+    for browser in candidates:
+        rc = sp.call(["open", "-a", browser], timeout=3)
+        if rc == 0:
+            break
 
 
 @send_bp.route("/")
@@ -131,16 +186,6 @@ def index():
     groups = api.list_groups()
     students = api.list_students()
 
-    # Build group->courses mapping for the course selector
-    groups_with_courses = []
-    for g in groups:
-        try:
-            courses = api.list_courses(g["id"])
-            g["courses"] = courses
-        except Exception:
-            g["courses"] = []
-        groups_with_courses.append(g)
-
     try:
         settings = api.get_settings()
     except Exception:
@@ -148,7 +193,7 @@ def index():
 
     return render_template("send/index.html",
                           templates=templates,
-                          groups=groups_with_courses,
+                          groups=groups,
                           students=students,
                           target_app_name=settings.get("target_app_name", "WeChat"))
 
@@ -158,7 +203,7 @@ def index():
 def start():
     template_id = request.form.get("template_id", type=int)
     student_ids = request.form.getlist("student_ids", type=int)
-    course_id = request.form.get("course_id", type=int)
+    generate_id = request.form.get("generate_id", "").strip()
 
     if not template_id or not student_ids:
         return jsonify({"error": "请选择模板和至少一名学员"}), 400
@@ -174,25 +219,19 @@ def start():
     if not students:
         return jsonify({"error": "未找到有效学员"}), 404
 
-    course_time = ""
-    course_date_str = ""
-    weekday_str = ""
-    if course_id:
+    # Use pre-generated or edited messages if available
+    pre_generated = None
+    messages_json = request.form.get("messages_json", "").strip()
+    if messages_json:
         try:
-            api.update_course_status(course_id, "upcoming")  # Verify course exists
-            # Get course group for time display
-            groups = api.list_groups()
-            for g in groups:
-                for c in api.list_courses(g["id"]):
-                    if c["id"] == course_id:
-                        course_time = g.get("time_display", "")
-                        course_date_str = c.get("date", "")
-                        weekday_str = c.get("weekday_display", "")
-                        break
-                if course_time:
-                    break
-        except Exception:
+            pre_generated = json.loads(messages_json)
+            # Clean up cached version if exists
+            if generate_id and generate_id in _generated:
+                _generated.pop(generate_id)
+        except (json.JSONDecodeError, ValueError):
             pass
+    elif generate_id and generate_id in _generated:
+        pre_generated = _generated.pop(generate_id)
 
     autocontent_description = request.form.get("autocontent_description", "").strip()
     performance_notes = {}
@@ -214,6 +253,9 @@ def start():
     app_name = request.form.get("app_name", "").strip() or settings.get("target_app_name", "WeChat")
     delay_ms = settings.get("wechat_delay_ms", 2500)
 
+    # Collect attachment paths
+    attachment_paths = request.form.getlist("attachment_paths[]")
+
     # Create in-memory job and start background thread
     job_id = uuid.uuid4().hex[:12]
     _jobs[job_id] = {
@@ -223,6 +265,7 @@ def start():
         "status": "pending",
         "current_student": "",
         "stitched_path": None,
+        "_browser": _detect_browser(request.headers.get("User-Agent", "")),
     }
 
     jwt_token = session.get("jwt", "")
@@ -232,14 +275,101 @@ def start():
         target=_run_send_job,
         args=(job_id, teacher_name, template, students,
               autocontent_description, performance_notes,
-              course_time, course_date_str, weekday_str, course_id,
+              pre_generated,
               jwt_token, server_base_url, current_app.instance_path,
-              app_name, delay_ms),
+              app_name, delay_ms, attachment_paths),
         daemon=True,
     )
     thread.start()
 
     return jsonify({"job_id": job_id})
+
+
+@send_bp.route("/generate", methods=["POST"])
+@api_login_required
+def generate():
+    """Generate messages for all selected students without sending."""
+    template_id = request.form.get("template_id", type=int)
+    student_ids = request.form.getlist("student_ids", type=int)
+
+    if not template_id or not student_ids:
+        return jsonify({"error": "请选择模板和至少一名学员"}), 400
+
+    try:
+        template = api.get_template(template_id)
+    except Exception:
+        return jsonify({"error": "模板不存在"}), 404
+
+    all_students = api.list_students()
+    students = [s for s in all_students if s["id"] in student_ids]
+    if not students:
+        return jsonify({"error": "未找到有效学员"}), 404
+
+    autocontent_description = request.form.get("autocontent_description", "").strip()
+    performance_notes = {}
+    has_performance = "{performance}" in template["content"]
+    if has_performance:
+        for sid in student_ids:
+            note = request.form.get(f"performance_{sid}", "").strip()
+            if note:
+                performance_notes[str(sid)] = note
+
+    teacher = session.get("teacher", {})
+    teacher_name = teacher.get("display_name") or teacher.get("username", "")
+
+    # Generate autocontent once
+    autocontent = ""
+    if autocontent_description:
+        autocontent = generate_autocontent(autocontent_description)
+
+    # Generate performance and render message for each student
+    messages = []
+    for student in students:
+        sid = str(student["id"])
+        performance = ""
+        if performance_notes and sid in performance_notes:
+            performance = generate_performance(student["name"], performance_notes[sid],
+                                                 course_context=autocontent_description)
+
+        message = render_message(
+            template_content=template["content"],
+            student_name=student["name"],
+            course_time="",
+            course_date="",
+            weekday="",
+            teacher_name=teacher_name,
+            autocontent=autocontent,
+            performance=performance,
+        )
+        messages.append({
+            "student_id": student["id"],
+            "student_name": student["name"],
+            "message": message,
+        })
+
+    # Store generated messages
+    generate_id = uuid.uuid4().hex[:12]
+    _generated[generate_id] = messages
+
+    return jsonify({
+        "generate_id": generate_id,
+        "messages": messages,
+    })
+
+
+@send_bp.route("/cancel/<job_id>", methods=["POST"])
+@api_login_required
+def cancel(job_id):
+    """Cancel a running send job."""
+    job = _jobs.get(job_id)
+    if not job:
+        return jsonify({"error": "任务不存在"}), 404
+    if job["status"] in ("done", "cancelled"):
+        return jsonify({"error": "任务已结束，无法中断"}), 400
+
+    job["_cancelled"] = True
+    job["status"] = "cancelled"
+    return jsonify({"success": True})
 
 
 @send_bp.route("/status/<job_id>")
@@ -297,7 +427,7 @@ def test_window():
     time.sleep(1.5)  # Wait for window to settle (longer for Stage Manager)
 
     # Get window ID and capture
-    win_id = _get_wechat_window_id(app_name)
+    win_id, _, _ = _get_wechat_window_id(app_name)
 
     filename = f"test_{hashlib.md5(app_name.encode()).hexdigest()[:8]}.png"
     filepath = os.path.join(test_dir, filename)
@@ -310,6 +440,9 @@ def test_window():
 
     if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
         return jsonify({"error": f"未能捕获 '{app_name}' 的窗口，请确认应用已打开"}), 400
+
+    # Switch back to browser
+    _activate_browser(_detect_browser(request.headers.get("User-Agent", "")))
 
     return jsonify({
         "success": True,
@@ -327,6 +460,72 @@ def test_image(filename):
     if not os.path.exists(filepath):
         return jsonify({"error": "文件不存在"}), 404
     return send_file(filepath, mimetype="image/png")
+
+
+def _get_attachment_dir():
+    """Ensure the temp attachment directory exists and return its path."""
+    attachment_dir = os.path.join(tempfile.gettempdir(), "autoWeChat_attachments")
+    os.makedirs(attachment_dir, exist_ok=True)
+    return attachment_dir
+
+
+@send_bp.route("/upload-attachment", methods=["POST"])
+@api_login_required
+def upload_attachment():
+    """Upload a file attachment and return its temp file path."""
+    if "file" not in request.files:
+        return jsonify({"error": "未选择文件"}), 400
+
+    f = request.files["file"]
+    if f.filename == "":
+        return jsonify({"error": "文件名为空"}), 400
+
+    attachment_dir = _get_attachment_dir()
+    # Use a unique name to avoid collisions
+    safe_name = f"{uuid.uuid4().hex[:8]}_{f.filename}"
+    filepath = os.path.join(attachment_dir, safe_name)
+    f.save(filepath)
+
+    return jsonify({
+        "path": filepath,
+        "filename": f.filename,
+    })
+
+
+@send_bp.route("/upload-clipboard", methods=["POST"])
+@api_login_required
+def upload_clipboard():
+    """Save a base64-encoded image from clipboard paste and return its temp file path."""
+    data = request.get_json()
+    if not data or "image" not in data:
+        return jsonify({"error": "缺少图片数据"}), 400
+
+    b64_str = data["image"]
+    # Strip data URL prefix if present (e.g. "data:image/png;base64,...")
+    if "," in b64_str:
+        b64_str = b64_str.split(",", 1)[1]
+
+    try:
+        img_data = base64.b64decode(b64_str)
+    except Exception:
+        return jsonify({"error": "无效的图片数据"}), 400
+
+    attachment_dir = _get_attachment_dir()
+    # Determine extension from the data URL or default to png
+    ext = "png"
+    if data["image"].startswith("data:image/"):
+        mime_part = data["image"].split(";")[0]
+        ext = mime_part.split("/")[-1] if "/" in mime_part else "png"
+
+    filename = f"clipboard_{uuid.uuid4().hex[:8]}.{ext}"
+    filepath = os.path.join(attachment_dir, filename)
+    with open(filepath, "wb") as f:
+        f.write(img_data)
+
+    return jsonify({
+        "path": filepath,
+        "filename": filename,
+    })
 
 
 @send_bp.route("/history")

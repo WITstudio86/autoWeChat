@@ -9,7 +9,7 @@
 </div>
 
 <div class="card shadow-sm">
-    <div class="card-body p-0">
+    <div class="card-body p-0 table-responsive">
         <table class="table table-hover mb-0">
             <thead class="table-light">
                 <tr>
@@ -20,12 +20,15 @@
                     <th>状态</th>
                     <th>到期时间</th>
                     <th>剩余</th>
-                    <th>创建时间</th>
-                    <th style="width: 200px;">操作</th>
+                    <th>本月Token</th>
+                    <th>班级限额</th>
+                    <th>人数限额</th>
+                    <th style="min-width: 240px;">操作</th>
                 </tr>
             </thead>
             <tbody>
                 {% for t in teachers %}
+                {% set u = usage.get(t.id, {}) %}
                 <tr>
                     <td>{{ t.id }}</td>
                     <td>{{ t.username }}</td>
@@ -62,11 +65,39 @@
                             <span class="text-success">{{ t.remaining_days }}天</span>
                         {% endif %}
                     </td>
-                    <td>{{ t.created_at | date_fmt('%Y-%m-%d %H:%M') if t.created_at else '-' }}</td>
+                    <td>
+                        {% if u.calls %}
+                        <small>{{ u.calls }}次 / {{ u.total_tokens }}T</small>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if t.max_groups %}
+                        <span class="badge bg-primary">{{ t.max_groups }}个</span>
+                        {% else %}
+                        <span class="text-muted">不限</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if t.max_students_per_group %}
+                        <span class="badge bg-primary">{{ t.max_students_per_group }}人</span>
+                        {% else %}
+                        <span class="text-muted">不限</span>
+                        {% endif %}
+                    </td>
                     <td>
                         <a href="{{ url_for('admin.edit', id=t.id) }}" class="btn btn-sm btn-outline-primary">编辑</a>
-<button class="btn btn-sm btn-outline-warning"
-                                onclick="resetPassword({{ t.id }}, '{{ t.username }}')">重置密码</button>
+                        <button class="btn btn-sm btn-outline-warning"
+                                onclick="resetPassword({{ t.id }}, '{{ t.username }}')">密码</button>
+                        {% if t.id != current_user.id and not t.is_admin %}
+                        <form method="POST" action="{{ url_for('admin.toggle_active', id=t.id) }}"
+                              class="d-inline">
+                            <button class="btn btn-sm {% if t.is_active %}btn-outline-secondary{% else %}btn-outline-success{% endif %}">
+                                {{ '禁用' if t.is_active else '启用' }}
+                            </button>
+                        </form>
+                        {% endif %}
                         {% if t.id != current_user.id %}
                         <form method="POST" action="{{ url_for('admin.delete', id=t.id) }}"
                               class="d-inline" onsubmit="return confirmDelete('确认删除教师 {{ t.username }}？其所有数据将被清除。');">

@@ -31,14 +31,13 @@ def create():
             flash("请选择有效的星期", "danger")
             return render_template("courses/form.html", group=None, weekdays=WEEKDAY_OPTIONS)
 
-        result = api.create_group({
+        api.create_group({
             "name": name,
             "day_of_week": day_of_week,
             "start_time": start_time,
             "end_time": end_time,
-            "weeks_ahead": 8,
         })
-        flash(f"课程分组 '{name}' 创建成功，已自动生成课程", "success")
+        flash(f"课程分组 '{name}' 创建成功", "success")
         return redirect(url_for("courses.list"))
 
     return render_template("courses/form.html", group=None, weekdays=WEEKDAY_OPTIONS)

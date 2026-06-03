@@ -1,9 +1,15 @@
 import os
+import sys
 
 
 class Config:
-    BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-    INSTANCE_DIR = os.path.join(BASE_DIR, "instance")
+    # Handle PyInstaller frozen state: sys._MEIPASS is the temp bundle dir
+    if getattr(sys, "frozen", False):
+        BASE_DIR = sys._MEIPASS  # type: ignore[attr-defined]
+    else:
+        BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+
+    INSTANCE_DIR = os.path.join(os.path.expanduser("~"), ".autoWeChat")
 
     os.makedirs(INSTANCE_DIR, exist_ok=True)
 
@@ -16,7 +22,3 @@ class Config:
     SESSION_COOKIE_SAMESITE = "Lax"
     SESSION_COOKIE_HTTPONLY = True
 
-    # DeepSeek AI global config (used locally for send flow)
-    AI_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "sk-2f4733c9ad11405eb7d67962d1219bba")
-    AI_API_ENDPOINT = "https://api.deepseek.com/v1"
-    AI_MODEL = "deepseek-v4-flash"

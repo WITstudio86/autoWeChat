@@ -36,6 +36,17 @@ router.post('/', expireCheckMiddleware, (req, res) => {
     return sendError(res, '无效的星期');
   }
 
+  // Check max_groups limit
+  const teacher = db.prepare('SELECT max_groups FROM teachers WHERE id = ?').get(req.teacherId);
+  if (teacher && teacher.max_groups) {
+    const currentCount = db.prepare(
+      'SELECT COUNT(*) as count FROM course_groups WHERE teacher_id = ?'
+    ).get(req.teacherId);
+    if (currentCount.count >= teacher.max_groups) {
+      return sendError(res, `已达到班级数量上限（${teacher.max_groups}个）`, 403);
+    }
+  }
+
   const result = db.prepare(
     'INSERT INTO course_groups (teacher_id, name, day_of_week, start_time, end_time) VALUES (?,?,?,?,?)'
   ).run(req.teacherId, name.trim(), day_of_week, start_time, end_time);

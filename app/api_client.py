@@ -23,27 +23,27 @@ class ApiClient:
             h.update(extra)
         return h
 
-    def _get(self, path, params=None):
+    def _get(self, path, params=None, timeout=15):
         r = requests.get(f"{self.base_url}{path}", headers=self._headers(),
-                        params=params, timeout=15)
+                        params=params, timeout=timeout)
         r.raise_for_status()
         return r.json()
 
-    def _post(self, path, data=None):
+    def _post(self, path, data=None, timeout=15):
         r = requests.post(f"{self.base_url}{path}", headers=self._headers(),
-                         json=data, timeout=15)
+                         json=data, timeout=timeout)
         r.raise_for_status()
         return r.json()
 
-    def _put(self, path, data=None):
+    def _put(self, path, data=None, timeout=15):
         r = requests.put(f"{self.base_url}{path}", headers=self._headers(),
-                        json=data, timeout=15)
+                        json=data, timeout=timeout)
         r.raise_for_status()
         return r.json()
 
-    def _delete(self, path):
+    def _delete(self, path, timeout=15):
         r = requests.delete(f"{self.base_url}{path}", headers=self._headers(),
-                           timeout=15)
+                           timeout=timeout)
         r.raise_for_status()
         return r.json()
 
@@ -146,6 +146,17 @@ class ApiClient:
     def get_stats(self):
         return self._get("/api/stats")
 
+    # ── AI ──
+
+    def generate_autocontent(self, description, timeout=60):
+        return self._post("/api/ai/autocontent",
+                          {"description": description}, timeout=timeout)
+
+    def generate_performance(self, student_name, notes, course_context="", timeout=60):
+        return self._post("/api/ai/performance",
+                          {"student_name": student_name, "notes": notes,
+                           "course_context": course_context}, timeout=timeout)
+
     # ── Settings ──
 
     def get_settings(self):
@@ -170,6 +181,12 @@ class ApiClient:
 
     def admin_reset_password(self, tid, password):
         return self._post(f"/api/admin/teachers/{tid}/reset-password", {"password": password})
+
+    def admin_get_usage(self):
+        return self._get("/api/admin/usage")
+
+    def admin_toggle_active(self, tid):
+        return self._post(f"/api/admin/teachers/{tid}/toggle-active")
 
 
 # Singleton, initialized in create_app()

@@ -15,13 +15,13 @@ if platform.system() == "Windows":
 
 
 def _get_wechat_window_id(app_name="WeChat"):
-    """Get the target app's CGWindowID for the largest layer-0 window.
+    """Get the target app's CGWindowID and bounds for the largest layer-0 window.
 
     Uses ctypes to call CoreGraphics CGWindowListCopyWindowInfo.
-    Returns int window ID, or None if the app is not found.
+    Returns (window_id, width, height) tuple, or (None, 0, 0) if not found.
     """
     if platform.system() != "Darwin":
-        return None
+        return (None, 0, 0)
 
     try:
         # Load frameworks
@@ -84,7 +84,7 @@ def _get_wechat_window_id(app_name="WeChat"):
         # Get on-screen window list
         win_array = cg.CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, 0)
         if not win_array:
-            return None
+            return (None, 0, 0)
 
         count = cf.CFArrayGetCount(win_array)
 
@@ -94,6 +94,8 @@ def _get_wechat_window_id(app_name="WeChat"):
         key_bounds = make_cfstr("kCGWindowBounds")
 
         best_window_id = None
+        best_width = 0
+        best_height = 0
         best_area = 0
 
         for i in range(count):
@@ -143,6 +145,8 @@ def _get_wechat_window_id(app_name="WeChat"):
                     win_num = c_int32(0)
                     if cf.CFNumberGetValue(num_ref, 3, byref(win_num)):  # kCFNumberSInt32Type
                         best_window_id = win_num.value
+                        best_width = int(w_val.value)
+                        best_height = int(h_val.value)
                         best_area = area
 
         # Cleanup
@@ -152,10 +156,15 @@ def _get_wechat_window_id(app_name="WeChat"):
         cf.CFRelease(key_number)
         cf.CFRelease(key_bounds)
 
-        return best_window_id
+        # Require minimum area (200x200 = 40000 px) to filter out
+        # floating panels, mini windows, and notification bars
+        if best_window_id is not None and best_area < 40000:
+            return (None, 0, 0)
+
+        return (best_window_id, best_width, best_height)
 
     except Exception:
-        return None
+        return (None, 0, 0)
 
 
 def capture_wechat_window(output_path: str, app_name: str = "WeChat") -> bool:
@@ -176,49 +185,23 @@ def capture_wechat_window(output_path: str, app_name: str = "WeChat") -> bool:
 def _mac_capture(output_path: str, app_name: str = "WeChat"):
     """Capture target app window on macOS.
 
-    Three-tier fallback:
-    1. screencapture -l <windowID> — captures window backing store (Stage Manager safe)
-    2. AppleScript get bounds + screencapture -R — coordinate-based (original method)
-    3. screencapture -x — full screen (last resort)
+    Uses CGWindowID capture which works even when the window is behind other apps.
+    Falls back to full screen if window ID lookup fails.
     """
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    # Method 1: Capture by CGWindowID (works with Stage Manager)
-    win_id = _get_wechat_window_id(app_name)
+    # Method 1: Capture by CGWindowID (captures window backing store, works behind other apps)
+    win_id, exp_w, exp_h = _get_wechat_window_id(app_name)
     if win_id is not None:
         rc = subprocess.call(
             ["screencapture", "-x", "-l", str(win_id), output_path],
-            timeout=5,
+            timeout=3,
         )
         if rc == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 0:
             return
 
-    # Method 2: Coordinate-based capture (original approach)
-    script = f'''
-    tell application "System Events"
-        tell process "{app_name}"
-            set frontmost to true
-            set winPos to position of window 1
-            set winSize to size of window 1
-            return (item 1 of winPos) & "," & (item 2 of winPos) & "," & (item 1 of winSize) & "," & (item 2 of winSize)
-        end tell
-    end tell
-    '''
-    try:
-        result = subprocess.check_output(["osascript", "-e", script], timeout=5).decode().strip()
-        x, y, w, h = map(int, result.split(","))
-        time.sleep(0.3)
-        rc = subprocess.call(
-            ["screencapture", "-x", "-R", f"{x},{y},{w},{h}", output_path],
-            timeout=5,
-        )
-        if rc == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-            return
-    except Exception:
-        pass
-
-    # Method 3: Full screen fallback
-    subprocess.call(["screencapture", "-x", output_path], timeout=5)
+    # Method 2: Full screen fallback (fast, no AppleScript overhead)
+    subprocess.call(["screencapture", "-x", output_path], timeout=3)
 
 
 def _windows_capture(output_path: str):
