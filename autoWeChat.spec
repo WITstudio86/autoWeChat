@@ -36,7 +36,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["matplotlib", "numpy", "pandas"],
+    excludes=["matplotlib", "numpy", "pandas", "cv2", "pygame", "h5py", "optree", "Foundation", "_argon2_cffi_bindings", "mypyc", "gevent", "greenlet"],
     noarchive=False,
     optimize=0,
 )
@@ -56,7 +56,7 @@ exe = EXE(
     console=False,  # --windowed: no terminal window
     disable_windowed_traceback=False,
     argv_emulation=False,
-    target_arch="arm64",
+    target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
     icon=str(root / "logo.icns"),
