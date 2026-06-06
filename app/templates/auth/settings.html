@@ -50,7 +50,7 @@
                             <option value="微信">中文版微信</option>
                             <option value="企业微信">企业微信 (WeCom)</option>
                         </datalist>
-                        <div class="form-text">macOS 应用程序名称，用于自动操控和截图的窗口目标</div>
+                        <div class="form-text" id="appNameFormText">应用程序名称，用于自动操控和截图的窗口目标</div>
                     </div>
                 </div>
             </div>
@@ -60,4 +60,14 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function() {
+    const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.platform) || /Mac/i.test(navigator.userAgent);
+    const formTextEl = document.getElementById('appNameFormText');
+    if (formTextEl) formTextEl.textContent = (isMac ? 'macOS ' : 'Windows ') + '应用程序名称，用于自动操控和截图的窗口目标';
+})();
+</script>
 {% endblock %}

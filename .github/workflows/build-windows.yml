@@ -1,0 +1,60 @@
+name: Build Windows Client
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v1.0.0)'
+        required: false
+        default: 'dev'
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Generate Windows icon from PNG
+        shell: python
+        run: |
+          from PIL import Image
+          img = Image.open("logo.png")
+          img.save("logo.ico", format="ICO", sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
+
+      - name: Build with PyInstaller
+        run: pyinstaller autoWeChat-win.spec
+
+      - name: Package artifact
+        shell: pwsh
+        run: |
+          $version = "${{ github.event.inputs.version }}"
+          if (-not $version -or $version -eq "dev") {
+            $ref = "${{ github.ref }}"
+            if ($ref -match "refs/tags/v(.+)$") { $version = $matches[1] }
+            else { $version = "dev" }
+          }
+          $distDir = "dist\autoWeChat"
+          $archive = "autoWeChat-windows-v$version.zip"
+          Compress-Archive -Path "$distDir\*" -DestinationPath $archive
+          "ARTIFACT=$archive" | Add-Content -Path $env:GITHUB_ENV
+          "ARTIFACT_NAME=autoWeChat-windows-v$version" | Add-Content -Path $env:GITHUB_ENV
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ env.ARTIFACT }}
+          retention-days: 30

@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import platform
 import time
 import uuid
 import base64
@@ -166,7 +167,6 @@ def _detect_browser(user_agent):
 def _activate_browser(browser_name=None):
     """Bring the browser back to front after sending completes."""
     import subprocess as sp
-    import platform
     if platform.system() != "Darwin":
         return
     candidates = []
@@ -412,8 +412,6 @@ def download_stitched(job_id):
 @api_login_required
 def test_window():
     """Take a test screenshot of the target app window."""
-    import subprocess as sp
-
     app_name = request.form.get("app_name", "WeChat").strip()
     if not app_name:
         return jsonify({"error": "请输入应用名称"}), 400
@@ -422,21 +420,15 @@ def test_window():
     test_dir = os.path.join(instance_path, "screenshots")
     os.makedirs(test_dir, exist_ok=True)
 
-    # Activate the target app
-    sp.call(["open", "-a", app_name], timeout=5)
-    time.sleep(1.5)  # Wait for window to settle (longer for Stage Manager)
-
-    # Get window ID and capture
-    win_id, _, _ = _get_wechat_window_id(app_name)
-
     filename = f"test_{hashlib.md5(app_name.encode()).hexdigest()[:8]}.png"
     filepath = os.path.join(test_dir, filename)
 
-    if win_id is not None:
-        sp.call(["screencapture", "-x", "-l", str(win_id), filepath], timeout=5)
+    if platform.system() == "Darwin":
+        _test_window_mac(app_name, filepath)
+    elif platform.system() == "Windows":
+        _test_window_windows(app_name, filepath)
     else:
-        # Fallback: full screen capture
-        sp.call(["screencapture", "-x", filepath], timeout=5)
+        return jsonify({"error": "当前系统不支持窗口测试"}), 400
 
     if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
         return jsonify({"error": f"未能捕获 '{app_name}' 的窗口，请确认应用已打开"}), 400
@@ -449,6 +441,28 @@ def test_window():
         "image_url": f"/send/test-image/{filename}",
         "app_name": app_name,
     })
+
+
+def _test_window_mac(app_name, filepath):
+    """Test screenshot on macOS using screencapture."""
+    import subprocess as sp
+    sp.call(["open", "-a", app_name], timeout=5)
+    time.sleep(1.5)
+    win_id, _, _ = _get_wechat_window_id(app_name)
+    if win_id is not None:
+        sp.call(["screencapture", "-x", "-l", str(win_id), filepath], timeout=5)
+    else:
+        sp.call(["screencapture", "-x", filepath], timeout=5)
+
+
+def _test_window_windows(app_name, filepath):
+    """Test screenshot on Windows using pyautogui."""
+    import subprocess as sp
+    sp.call(["start", app_name], shell=True)
+    time.sleep(1.5)
+    import pyautogui
+    img = pyautogui.screenshot()
+    img.save(filepath)
 
 
 @send_bp.route("/test-image/<filename>")

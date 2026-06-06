@@ -36,3 +36,6 @@ data/
 homepage/download/*.app
 homepage/download/*.exe
 !homepage/download/.gitkeep
+# GitHub Releases 分发用，不提交
+homepage/download/*
+!homepage/download/.gitkeep

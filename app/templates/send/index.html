@@ -35,7 +35,7 @@
                     <option value="微信">中文版微信</option>
                     <option value="企业微信">企业微信 (WeCom)</option>
                 </datalist>
-                <div class="form-text small">macOS 应用程序名称</div>
+                <div class="form-text small" id="appNameFormText">应用程序名称</div>
                 <button class="btn btn-outline-info btn-sm w-100 mt-2"
                         onclick="testWindow()" id="testWindowBtn">
                     <i class="bi bi-camera"></i> 测试窗口
@@ -84,7 +84,7 @@
                      style="min-height: 60px; cursor: pointer; border-style: dashed !important;"
                      tabindex="0"
                      onclick="document.getElementById('attachmentFileInput').click()">
-                    <i class="bi bi-clipboard"></i> 点击选择文件，或在此处 <kbd>⌘V</kbd> 粘贴图片
+                    <i class="bi bi-clipboard"></i> 点击选择文件，或在此处 <kbd id="pasteShortcut">Ctrl+V</kbd> 粘贴图片
                 </div>
                 <div id="attachmentList" class="mt-2"></div>
             </div>
@@ -224,6 +224,16 @@
 
 {% block extra_scripts %}
 <script>
+const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.platform) || /Mac/i.test(navigator.userAgent);
+
+// Update OS-specific UI text
+(function() {
+    const shortcutEl = document.getElementById('pasteShortcut');
+    if (shortcutEl) shortcutEl.textContent = isMac ? '⌘V' : 'Ctrl+V';
+    const formTextEl = document.getElementById('appNameFormText');
+    if (formTextEl) formTextEl.textContent = (isMac ? 'macOS ' : 'Windows ') + '应用程序名称';
+})();
+
 let jobId = null;
 let pollTimer = null;
 let currentHasAutocontent = false;
