@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```
 ┌──────────────────────┐       HTTP/JSON        ┌──────────────────────┐
 │  本地 Python 客户端    │ ◄──────────────────────► │  云端 Node.js 服务端   │
-│  (Flask, 端口 5000)   │     JWT Bearer Token    │  (Express, 端口 5001) │
+│  (Flask, 端口 5000)   │     JWT Bearer Token    │  (Express, 端口 3004) │
 │  - Jinja2 页面渲染     │                         │  - REST API           │
 │  - WeChat 自动化       │                         │  - JWT 认证            │
 │  - 截图 / 拼长图       │                         │  - SQLite 数据库       │
@@ -55,7 +55,7 @@ client/                    # Python Flask 客户端 (从原 app/ 拆分)
 ```bash
 # 1. 启动 Node.js 服务端
 cd server && npm install && npm start
-# → http://localhost:5001
+# → http://localhost:3004
 
 # 2. 启动 Python 客户端
 pip install -r requirements.txt

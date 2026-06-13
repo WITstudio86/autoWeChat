@@ -24,13 +24,13 @@ CI 三平台并行构建（约 5-8 分钟），产物挂在 [GitHub Releases](ht
 
 | 产物 | 用途 |
 |------|------|
-| `autoWeChat-macOS.zip` | macOS 客户端，上传到服务器供用户下载 |
-| `autoWeChat-windows.zip` | Windows 客户端，上传到服务器供用户下载 |
-| `autowechat-server-v*.tar.gz` | 服务端代码，用于服务器部署 |
+| `autoWeChat-macOS.zip` | macOS 客户端 |
+| `autoWeChat-windows.zip` | Windows 客户端 |
+| `autowechat-server-v*.tar.gz` | 服务端代码（部署用） |
 
 ---
 
-## 服务端部署（1Panel）
+## 服务端部署（全在 1Panel 完成）
 
 ### 1. 安装 Node.js 运行环境
 
@@ -38,37 +38,40 @@ CI 三平台并行构建（约 5-8 分钟），产物挂在 [GitHub Releases](ht
 
 ### 2. 上传服务端代码
 
-从 GitHub Release 下载 `autowechat-server-v*.tar.gz`，SSH 上传到服务器：
+从 Release 下载 `autowechat-server-v*.tar.gz`，SSH 上传到服务器：
 
 ```bash
 ssh root@<服务器IP> "mkdir -p /opt/autowechat/data"
 scp autowechat-server-v*.tar.gz root@<服务器IP>:/opt/autowechat/
-ssh root@<服务器IP> "cd /opt/autowechat && tar -xzf autowechat-server-v*.tar.gz && cp -r server/* . && rm -rf server autowechat-server-v*.tar.gz"
+ssh root@<服务器IP> "
+  cd /opt/autowechat &&
+  tar -xzf autowechat-server-v*.tar.gz &&
+  cp -r server/* . &&
+  rm -rf server autowechat-server-v*.tar.gz
+"
 ```
 
-解压后目录结构：
+解压后结构：
 
 ```
 /opt/autowechat/
 ├── src/
 ├── homepage/
 ├── package.json
-├── data/          ← 手动创建，存放 SQLite 数据库
-└── .env           ← 下一步配置
+└── data/
 ```
 
 ### 3. 配置环境变量
 
-SSH 创建 `.env`：
+SSH 到服务器创建 `.env`：
 
 ```bash
 cd /opt/autowechat
 
-# 生成 JWT 密钥
 echo "JWT_SECRET=$(openssl rand -hex 64)" > .env
 
 cat >> .env << 'EOF'
-PORT=5001
+PORT=3004
 JWT_EXPIRE_HOURS=72
 AI_API_KEY=你的DeepSeek_API_Key
 AI_API_ENDPOINT=https://api.deepseek.com/v1
@@ -76,12 +79,12 @@ AI_MODEL=deepseek-v4-flash
 DB_PATH=./data/autowechat.db
 EOF
 
-# 编辑 .env 填入真实 API Key
+# 编辑 .env，填入真实 API Key
 ```
 
 ### 4. 创建 Node.js 网站
 
-1Panel → **网站** → **创建网站** → 选择 **运行环境**：
+1Panel → **网站** → **创建网站** → **运行环境**：
 
 | 配置项 | 值 |
 |--------|-----|
@@ -90,25 +93,19 @@ EOF
 | 运行目录 | `/opt/autowechat` |
 | 启动命令 | `npm start` |
 | 包管理器 | npm |
-| 应用端口 | `5001` |
-| 外部映射 | `5001` |
+| 应用端口 | `3004` |
+| 外部映射 | `3004` |
 
 ### 5. 创建反向代理（绑定域名）
 
-1Panel → **网站** → **创建网站** → 选择 **反向代理**：
+1Panel → **网站** → **创建网站** → **反向代理**：
 
 | 配置项 | 值 |
 |--------|-----|
 | 主域名 | `autowechat.你的域名.com` |
-| 代理地址 | Node 容器内网 IP（见下方说明） |
+| 代理地址 | `http://127.0.0.1:3004` |
 
-> 因为 Node.js 网站和 OpenResty 都跑在 Docker 容器内，代理地址不能直接用 `127.0.0.1`。需要查 Node 容器的内网 IP：
-> ```bash
-> docker inspect autoWeChat --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'
-> ```
-> 将返回的 IP（如 `172.19.0.5`）填入代理地址，格式为 `http://172.19.0.5:5001`。
-
-创建后点击网站 → **配置** → **配置文件**，在 `location /` 块中加入：
+创建后点进网站 → **配置** → **配置文件**，在 `location /` 块加：
 
 ```nginx
 proxy_read_timeout 120s;
@@ -125,7 +122,7 @@ proxy_buffering off;
 
 ### 8. 数据库备份
 
-1Panel → **计划任务** → 创建任务，每天执行：
+1Panel → **计划任务** → 每天执行：
 
 ```bash
 cp /opt/autowechat/data/autowechat.db /opt/backups/autowechat-$(date +%Y%m%d).db
@@ -136,7 +133,8 @@ find /opt/backups -name "autowechat-*.db" -mtime +7 -delete
 
 ## 客户端分发
 
-从 Release 下载客户端 zip，上传到服务器：
+从 Release 下载客户端 zip，上传到服务器下载目录：
+
 ```bash
 scp autoWeChat-macOS.zip root@<服务器IP>:/opt/autowechat/homepage/download/
 scp autoWeChat-windows.zip root@<服务器IP>:/opt/autowechat/homepage/download/
@@ -146,7 +144,8 @@ scp autoWeChat-windows.zip root@<服务器IP>:/opt/autowechat/homepage/download/
 
 ### macOS 首次运行
 
-macOS Gatekeeper 会阻止未签名应用。用户打开 **系统设置 → 隐私与安全性**，找到 `autoWeChat.app` 的提示，点击「仍要打开」。或终端执行：
+Gatekeeper 阻止未签名应用。用户打开 **系统设置 → 隐私与安全性**，找到提示点击「仍要打开」。或终端执行：
+
 ```bash
 xattr -cr /Applications/autoWeChat.app
 ```
@@ -155,7 +154,7 @@ xattr -cr /Applications/autoWeChat.app
 
 ## 更新部署
 
-1. GitHub Releases 下载新版本 `autowechat-server-v*.tar.gz`
+1. GitHub Releases 下载新版本
 2. SSH 解压覆盖，1Panel 面板重启网站：
 
 ```bash
@@ -169,18 +168,16 @@ ssh root@<服务器IP> "
 "
 ```
 
-3. 如果容器内网 IP 变了，更新反向代理地址
-4. 1Panel → 网站 → autoWeChat（Node.js）→ **重启**
+3. 1Panel → 网站 → autoWeChat（Node.js）→ **重启**
 
 ---
 
-## 附录：目录结构
+## 附录：服务器目录结构
 
 ```
 /opt/autowechat/
 ├── .env
 ├── package.json
-├── package-lock.json
 ├── src/
 │   ├── index.js
 │   ├── config.js
