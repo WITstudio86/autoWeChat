@@ -87,22 +87,43 @@ EOF
 |--------|-----|
 | 类型 | Node.js |
 | 运行环境 | Node.js 22.x |
-| 主域名 | `autowechat.你的域名.com` |
 | 运行目录 | `/opt/autowechat` |
 | 启动命令 | `npm start` |
 | 包管理器 | npm |
 | 应用端口 | `5001` |
 | 外部映射 | `5001` |
-| 开启 HTTPS | 开启（申请 Let's Encrypt 证书） |
-| HTTP 选项 | 禁止 HTTP（仅 HTTPS） |
 
-> 域名直接配在 Node.js 网站上，1Panel 会自动创建 OpenResty 反向代理，**不需要单独建反向代理网站**。
+### 5. 创建反向代理（绑定域名）
 
-### 5. 验证
+1Panel → **网站** → **创建网站** → 选择 **反向代理**：
+
+| 配置项 | 值 |
+|--------|-----|
+| 主域名 | `autowechat.你的域名.com` |
+| 代理地址 | Node 容器内网 IP（见下方说明） |
+
+> 因为 Node.js 网站和 OpenResty 都跑在 Docker 容器内，代理地址不能直接用 `127.0.0.1`。需要查 Node 容器的内网 IP：
+> ```bash
+> docker inspect autoWeChat --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'
+> ```
+> 将返回的 IP（如 `172.19.0.5`）填入代理地址，格式为 `http://172.19.0.5:5001`。
+
+创建后点击网站 → **配置** → **配置文件**，在 `location /` 块中加入：
+
+```nginx
+proxy_read_timeout 120s;
+proxy_buffering off;
+```
+
+### 6. SSL 证书
+
+网站 → **HTTPS** → 申请 Let's Encrypt 证书 → 开启 HTTPS，HTTP 选项选「禁止 HTTP」。
+
+### 7. 验证
 
 浏览器访问 `https://autowechat.你的域名.com/`，应该看到产品首页。
 
-### 6. 数据库备份
+### 8. 数据库备份
 
 1Panel → **计划任务** → 创建任务，每天执行：
 
@@ -148,7 +169,8 @@ ssh root@<服务器IP> "
 "
 ```
 
-3. 1Panel → 网站 → autoWeChat → **重启**
+3. 如果容器内网 IP 变了，更新反向代理地址
+4. 1Panel → 网站 → autoWeChat（Node.js）→ **重启**
 
 ---
 
