@@ -135,7 +135,8 @@ jobs:
       - name: Package server
         run: |
           VERSION="${{ needs.version.outputs.version }}"
-          # Exclude dev files, keep only what's needed for deployment
+          # Include homepage inside server/ so Express can serve it
+          cp -r homepage server/
           tar -czf "autowechat-server-v${VERSION}.tar.gz" \
             --exclude='server/node_modules' \
             --exclude='server/.env' \
