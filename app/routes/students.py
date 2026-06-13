@@ -15,7 +15,8 @@ def list():
     students = api.list_students(group_id=group_id, sort=sort, filter_text=filter_text)
     groups = api.list_groups()
 
-    return render_template("students/list.html",
+    template = "students/_table.html" if request.headers.get("HX-Request") else "students/list.html"
+    return render_template(template,
                           students=students,
                           groups=groups,
                           current_group_id=group_id,

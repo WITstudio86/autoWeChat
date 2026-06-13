@@ -15,8 +15,8 @@
     <div class="card-body">
         <form method="GET" class="row g-2 align-items-end" id="filterForm"
               hx-get="{{ url_for('students.list') }}"
-              hx-target="#studentTableBody"
-              hx-trigger="change from:select, input delay:300ms from:#filterInput">
+              hx-target="#studentTable"
+              hx-trigger="change from:#group_id, change from:#sort, input delay:300ms from:#filterInput">
             <div class="col-auto">
                 <label for="group_id" class="form-label small">课程分组</label>
                 <select class="form-select form-select-sm" name="group_id" id="group_id">

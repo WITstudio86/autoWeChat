@@ -15,6 +15,21 @@ app.use(express.json());
 createTables();
 seedAdmin();
 
+// Static homepage
+const homepagePath = path.join(__dirname, '..', 'homepage');
+app.use(express.static(homepagePath));
+
+// SPA fallback: serve index.html for non-API routes
+app.get(/^\/(?!api\/).*/, (req, res) => {
+  const filePath = path.join(homepagePath, req.path === '/' ? 'index.html' : req.path);
+  res.sendFile(filePath, { maxAge: 0 }, (err) => {
+    if (err) {
+      // Try index.html for client-side routing
+      res.sendFile(path.join(homepagePath, 'index.html'));
+    }
+  });
+});
+
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/groups', require('./routes/groups'));

@@ -59,7 +59,8 @@
                     <option value="{{ t.id }}"
                             data-content="{{ t.content }}"
                             data-has-autocontent="{{ 'true' if '{autocontent}' in t.content else 'false' }}"
-                            data-has-performance="{{ 'true' if '{performance}' in t.content else 'false' }}">
+                            data-has-performance="{{ 'true' if '{performance}' in t.content else 'false' }}"
+                            data-has-homework="{{ 'true' if '{homework}' in t.content else 'false' }}">
                         {{ t.name }}
                     </option>
                     {% endfor %}
@@ -87,6 +88,19 @@
                     <i class="bi bi-clipboard"></i> 点击选择文件，或在此处 <kbd id="pasteShortcut">Ctrl+V</kbd> 粘贴图片
                 </div>
                 <div id="attachmentList" class="mt-2"></div>
+            </div>
+        </div>
+
+        {# Homework input (shown when template has {homework}) #}
+        <div class="card shadow-sm mb-3 d-none" id="homeworkCard">
+            <div class="card-header">
+                <i class="bi bi-journal-check"></i> 课后作业
+                <span class="badge bg-info ms-1">{homework}</span>
+            </div>
+            <div class="card-body">
+                <textarea class="form-control form-control-sm" id="homeworkInput"
+                          rows="2" placeholder="输入课后作业内容（可选），例如：&#10;1. 完成练习册第25页&#10;2. 预习下一课单词"></textarea>
+                <div class="form-text small">由用户自行填写，非 AI 生成，对全部选中学员生效</div>
             </div>
         </div>
 
@@ -145,6 +159,7 @@
                     <div class="performance-input mt-1 ps-4 d-none" id="perfInput{{ s.id }}">
                         <input type="text" class="form-control form-control-sm"
                                id="performance_{{ s.id }}" name="performance_{{ s.id }}"
+                               value="不错"
                                placeholder="输入 {{ s.name }} 的表现概要（AI 扩展）">
                     </div>
                 </div>
@@ -238,6 +253,7 @@ let jobId = null;
 let pollTimer = null;
 let currentHasAutocontent = false;
 let currentHasPerformance = false;
+let currentHasHomework = false;
 let currentGenerateId = null;
 
 document.querySelectorAll('.student-check').forEach(cb => {
@@ -286,8 +302,10 @@ function onTemplateChange() {
     const opt = document.getElementById('templateSelect').selectedOptions[0];
     currentHasAutocontent = opt ? opt.dataset.hasAutocontent === 'true' : false;
     currentHasPerformance = opt ? opt.dataset.hasPerformance === 'true' : false;
+    currentHasHomework = opt ? opt.dataset.hasHomework === 'true' : false;
 
     document.getElementById('autocontentCard').classList.toggle('d-none', !currentHasAutocontent);
+    document.getElementById('homeworkCard').classList.toggle('d-none', !currentHasHomework);
     // Clear generated messages when template changes
     clearGenerated();
     updatePerfInputs();
@@ -381,6 +399,7 @@ function updatePreview() {
     content = content.replace(/\{teacher\}/g, teacherName);
     content = content.replace(/\{autocontent\}/g, '<span class="text-info">[点击"生成消息"由AI生成]</span>');
     content = content.replace(/\{performance\}/g, '<span class="text-success">[点击"生成消息"由AI生成]</span>');
+    content = content.replace(/\{homework\}/g, '<span class="text-warning">[课后作业内容]</span>');
 
     preview.innerHTML = content.replace(/\n/g, '<br>');
 }
@@ -413,6 +432,9 @@ async function generateMessages() {
 
     if (currentHasAutocontent) {
         formData.append('autocontent_description', document.getElementById('autocontentDescription').value);
+    }
+    if (currentHasHomework) {
+        formData.append('homework', document.getElementById('homeworkInput').value);
     }
     if (currentHasPerformance) {
         studentIds.forEach(id => {
@@ -503,6 +525,9 @@ async function startSend() {
 
     if (currentHasAutocontent && !currentGenerateId && editedTextareas.length === 0) {
         formData.append('autocontent_description', document.getElementById('autocontentDescription').value);
+    }
+    if (currentHasHomework) {
+        formData.append('homework', document.getElementById('homeworkInput').value);
     }
     if (currentHasPerformance && !currentGenerateId) {
         studentIds.forEach(id => {

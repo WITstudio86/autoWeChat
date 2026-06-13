@@ -32,6 +32,8 @@ a = Analysis(
         "app.services.screenshot",
         "app.services.wechat_sender",
         "app.gui",
+        "markupsafe",
+        "jinja2.ext",
     ],
     hookspath=[],
     hooksconfig={},

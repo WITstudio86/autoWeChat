@@ -26,7 +26,8 @@ def _run_send_job(job_id, teacher_name, template, students,
                   autocontent_description, performance_notes,
                   pre_generated_messages,
                   jwt_token, server_base_url, instance_path,
-                  app_name, delay_ms, attachment_paths=None):
+                  app_name, delay_ms, attachment_paths=None,
+                  homework=""):
     """Background thread: generate AI content, send WeChat messages, capture screenshots."""
     job = _jobs.get(job_id)
     if not job:
@@ -68,6 +69,7 @@ def _run_send_job(job_id, teacher_name, template, students,
                 teacher_name=teacher_name,
                 autocontent=autocontent,
                 performance=performance,
+                homework=homework,
             )
             messages_map[sid] = message
 
@@ -234,6 +236,7 @@ def start():
         pre_generated = _generated.pop(generate_id)
 
     autocontent_description = request.form.get("autocontent_description", "").strip()
+    homework = request.form.get("homework", "").strip()
     performance_notes = {}
     has_performance = "{performance}" in template["content"]
     if has_performance:
@@ -277,7 +280,7 @@ def start():
               autocontent_description, performance_notes,
               pre_generated,
               jwt_token, server_base_url, current_app.instance_path,
-              app_name, delay_ms, attachment_paths),
+              app_name, delay_ms, attachment_paths, homework),
         daemon=True,
     )
     thread.start()
@@ -306,6 +309,7 @@ def generate():
         return jsonify({"error": "未找到有效学员"}), 404
 
     autocontent_description = request.form.get("autocontent_description", "").strip()
+    homework = request.form.get("homework", "").strip()
     performance_notes = {}
     has_performance = "{performance}" in template["content"]
     if has_performance:
@@ -340,6 +344,7 @@ def generate():
             teacher_name=teacher_name,
             autocontent=autocontent,
             performance=performance,
+            homework=homework,
         )
         messages.append({
             "student_id": student["id"],

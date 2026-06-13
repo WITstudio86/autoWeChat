@@ -1,0 +1,180 @@
+name: Release Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v1.0.0)'
+        required: false
+        default: 'dev'
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  # ── Extract version ──────────────────────────────────────────
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      display_version: ${{ steps.ver.outputs.display_version }}
+    steps:
+      - name: Determine version
+        id: ver
+        run: |
+          INPUT="${{ github.event.inputs.version }}"
+          TAG_REF="${{ github.ref }}"
+          if [ -n "$INPUT" ] && [ "$INPUT" != "dev" ]; then
+            V="$INPUT"
+          elif echo "$TAG_REF" | grep -q 'refs/tags/v'; then
+            V=$(echo "$TAG_REF" | sed 's|refs/tags/v||')
+          else
+            V="dev"
+          fi
+          echo "version=$V" >> $GITHUB_OUTPUT
+          echo "display_version=v$V" >> $GITHUB_OUTPUT
+
+  # ── macOS client ─────────────────────────────────────────────
+  build-macos:
+    needs: version
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller autoWeChat.spec
+
+      - name: Package macOS artifact
+        run: |
+          VERSION="${{ needs.version.outputs.version }}"
+          mkdir -p dist/package
+          cp -R dist/autoWeChat.app dist/package/
+          # for latest link
+          cd dist/package && zip -r ../../autoWeChat-macOS.zip autoWeChat.app && cd ../..
+          # versioned archive
+          cp autoWeChat-macOS.zip "autoWeChat-macOS-v${VERSION}.zip"
+          echo "ARTIFACT_NAME=autoWeChat-macOS-v${VERSION}" >> $GITHUB_ENV
+
+      - name: Upload latest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: autoWeChat-macOS
+          path: autoWeChat-macOS.zip
+          retention-days: 90
+
+      - name: Upload versioned artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: autoWeChat-macOS-v${{ needs.version.outputs.version }}.zip
+          retention-days: 90
+
+  # ── Windows client ───────────────────────────────────────────
+  build-windows:
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Generate Windows icon from PNG
+        shell: python
+        run: |
+          from PIL import Image
+          img = Image.open("logo.png")
+          img.save("logo.ico", format="ICO", sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
+
+      - name: Build with PyInstaller
+        run: pyinstaller autoWeChat-win.spec
+
+      - name: Package Windows artifact
+        shell: pwsh
+        run: |
+          $VERSION = "${{ needs.version.outputs.version }}"
+          $distDir = "dist\autoWeChat"
+          # for latest link
+          Compress-Archive -Path "$distDir\*" -DestinationPath autoWeChat-windows.zip
+          # versioned
+          Copy-Item autoWeChat-windows.zip "autoWeChat-windows-v$VERSION.zip"
+          echo "ARTIFACT_NAME=autoWeChat-windows-v$VERSION" >> $env:GITHUB_ENV
+
+      - name: Upload latest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: autoWeChat-windows
+          path: autoWeChat-windows.zip
+          retention-days: 90
+
+      - name: Upload versioned artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: autoWeChat-windows-v${{ needs.version.outputs.version }}.zip
+          retention-days: 90
+
+  # ── Server package ───────────────────────────────────────────
+  build-server:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package server
+        run: |
+          VERSION="${{ needs.version.outputs.version }}"
+          # Exclude dev files, keep only what's needed for deployment
+          tar -czf "autowechat-server-v${VERSION}.tar.gz" \
+            --exclude='server/node_modules' \
+            --exclude='server/.env' \
+            --exclude='server/data' \
+            server/
+          echo "ARTIFACT_NAME=autowechat-server-v${VERSION}" >> $GITHUB_ENV
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: autowechat-server-v${{ needs.version.outputs.version }}.tar.gz
+          retention-days: 90
+
+  # ── GitHub Release (tag triggers only) ───────────────────────
+  create-release:
+    needs: [version, build-macos, build-windows, build-server]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: autoWeChat-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Organize release assets
+        run: |
+          mkdir -p release
+          find artifacts -maxdepth 1 \( -name '*.zip' -o -name '*.tar.gz' \) -exec mv {} release/ \;
+          ls -la release/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ needs.version.outputs.display_version }}
+          files: release/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true

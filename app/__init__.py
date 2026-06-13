@@ -92,7 +92,7 @@ def create_app(config_class=Config):
         from werkzeug.exceptions import HTTPException
         # Let Flask handle HTTP exceptions (404, 405, etc.) properly
         if isinstance(e, HTTPException):
-            raise e
+            return e
         if isinstance(e, _requests.ConnectionError):
             return render_error("无法连接到服务器，请检查网络连接或服务器状态")
         if isinstance(e, _requests.Timeout):
@@ -100,8 +100,12 @@ def create_app(config_class=Config):
         if isinstance(e, _requests.HTTPError):
             status = e.response.status_code
             if status == 401:
-                return render_error("登录会话已过期，请重新登录")
+                from flask import session, redirect, url_for
+                session.clear()
+                return redirect(url_for("auth.login"))
             return render_error(f"服务器请求失败 (HTTP {status})，请稍后重试")
+        import traceback
+        traceback.print_exc()
         raise e
 
     return app

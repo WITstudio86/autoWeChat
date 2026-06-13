@@ -16,7 +16,7 @@ def generate_autocontent(description: str) -> str:
 def generate_performance(student_name: str, notes: str, course_context: str = "") -> str:
     """Generate personalized performance note via server-side AI."""
     if not notes.strip():
-        return f"{student_name}本节课表现良好，继续加油！"
+        return f"{student_name}本节课表现不错，继续加油！"
 
     try:
         result = api.generate_performance(student_name, notes, course_context)

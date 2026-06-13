@@ -79,7 +79,7 @@ python3 run.py
 - **context_processor**: `__init__.py` 的 `inject_user()` 从 `session['teacher']` 创建代理对象，兼容模板中的 `{{ current_user.xxx }}`
 - **AI 在线程内**: `_run_send_job` 后台线程通过传入 JWT 创建独立 ApiClient 实例调用 Node.js API
 - **AI Key 全局**: 在 `config.py` 的 `AI_API_KEY` 配置
-- **模板变量**: `{name}`, `{class}`, `{date}`, `{weekday}`, `{teacher}`, `{autocontent}`, `{performance}`
+- **模板变量**: `{name}`, `{class}`, `{date}`, `{weekday}`, `{teacher}`, `{autocontent}`, `{performance}`, `{homework}`
 
 ## API 端点 (Node.js)
 

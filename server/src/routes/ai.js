@@ -93,7 +93,7 @@ router.post('/autocontent', (req, res) => {
   const systemPrompt =
     '你是一位教培机构的助教，需要根据老师提供的课程概要，扩展成一段约200字的中文课程内容汇报，' +
     '用于一对一发送给某位学生的家长。' +
-    '内容应包含：本节课学了哪些具体知识点、用了什么教学方法或练习形式、课后作业（如有）。' +
+    '内容应包含：本节课学了哪些具体知识点、用了什么教学方法或练习形式。' +
     '语气亲切、专业、积极向上。' +
     '重要规则：' +
     '1. 只描述课程本身的内容和教学安排，不要提及任何学生的课堂表现、状态或行为；' +
@@ -118,7 +118,7 @@ router.post('/performance', (req, res) => {
   }
 
   if (!notes || !notes.trim()) {
-    return sendJson(res, { content: `${student_name}本节课表现良好，继续加油！` });
+    return sendJson(res, { content: `${student_name}本节课表现不错，继续加油！` });
   }
 
   let contextHint = '';
