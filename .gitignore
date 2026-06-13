@@ -36,3 +36,7 @@ data/
 homepage/download/*.app
 homepage/download/*.exe
 !homepage/download/.gitkeep
+
+# Build artifacts in root
+*.zip
+*.tar.gz
