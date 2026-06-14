@@ -46,8 +46,11 @@ scp autowechat-server-v*.tar.gz root@<服务器IP>:/opt/autowechat/
 ssh root@<服务器IP> "
   cd /opt/autowechat &&
   tar -xzf autowechat-server-v*.tar.gz &&
-  cp -r server/* . &&
-  rm -rf server autowechat-server-v*.tar.gz
+  cp -r server/src . &&
+  cp server/package.json . &&
+  cp -r server/homepage . &&
+  rm -rf server autowechat-server-v*.tar.gz &&
+  npm install --production
 "
 ```
 
@@ -164,21 +167,44 @@ xattr -cr /Applications/autoWeChat.app
 
 ## 更新部署
 
+### 备份数据（重要）
+
+更新前先备份数据库：
+
+```bash
+ssh root@<服务器IP> "cp /opt/autowechat/data/autowechat.db /opt/autowechat/data/autowechat-$(date +%Y%m%d-%H%M).bak"
+```
+
+### 更新步骤
+
 1. GitHub Releases 下载新版本
-2. SSH 解压覆盖，1Panel 面板重启网站：
+2. SSH 解压覆盖（不含 data 目录），1Panel 面板重启网站：
 
 ```bash
 scp autowechat-server-v*.tar.gz root@<服务器IP>:/opt/autowechat/
 ssh root@<服务器IP> "
   cd /opt/autowechat &&
   tar -xzf autowechat-server-v*.tar.gz &&
-  cp -r server/* . &&
+  cp -r server/src . &&
+  cp server/package.json . &&
+  cp -r server/homepage . &&
   rm -rf server autowechat-server-v*.tar.gz &&
   npm install --production
 "
 ```
 
+> `server/data/` 已从构建压缩包中排除，逐项复制避免覆盖本地数据。
+
 3. 1Panel → 网站 → autoWeChat（Node.js）→ **重启**
+
+### 数据目录
+
+`/opt/autowechat/data/` 不在压缩包内，更新不会触及。数据库文件位于：
+
+| 文件 | 说明 |
+|------|------|
+| `autowechat.db` | 当前数据库 |
+| `autowechat-*.bak` | 更新前自动备份 |
 
 ---
 
