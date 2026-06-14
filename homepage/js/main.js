@@ -65,14 +65,21 @@ document.addEventListener('DOMContentLoaded', function () {
         if (winVer) winVer.textContent = v;
 
         var assets = data.assets || [];
-        var macAsset = assets.find(function (a) { return a.name && a.name.indexOf('macOS') !== -1; });
-        var winAsset = assets.find(function (a) { return a.name && a.name.indexOf('windows') !== -1; });
+        // Prefer the non-versioned "latest" asset, fall back to any match
+        function pickAsset(keyword) {
+          var exact = assets.find(function (a) { return a.name === 'autoWeChat-' + keyword + '.zip'; });
+          if (exact) return exact;
+          return assets.find(function (a) { return a.name && a.name.indexOf(keyword) !== -1; });
+        }
+
+        var macAsset = pickAsset('macOS');
+        var winAsset = pickAsset('windows');
 
         if (macAsset && macLink) macLink.href = macAsset.browser_download_url;
         if (winAsset && winLink) winLink.href = winAsset.browser_download_url;
       })
       .catch(function () {
-        // Keep default values on error
+        // Keep default GitHub latest-download URLs
       });
   })();
 
