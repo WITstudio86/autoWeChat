@@ -428,24 +428,27 @@ def test_window():
     filename = f"test_{hashlib.md5(app_name.encode()).hexdigest()[:8]}.png"
     filepath = os.path.join(test_dir, filename)
 
-    if platform.system() == "Darwin":
-        _test_window_mac(app_name, filepath)
-    elif platform.system() == "Windows":
-        _test_window_windows(app_name, filepath)
-    else:
-        return jsonify({"error": "当前系统不支持窗口测试"}), 400
+    try:
+        if platform.system() == "Darwin":
+            _test_window_mac(app_name, filepath)
+        elif platform.system() == "Windows":
+            _test_window_windows(app_name, filepath)
+        else:
+            return jsonify({"error": "当前系统不支持窗口测试"}), 400
 
-    if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
-        return jsonify({"error": f"未能捕获 '{app_name}' 的窗口，请确认应用已打开"}), 400
+        if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
+            return jsonify({"error": f"未能捕获 '{app_name}' 的窗口，请确认应用已打开"}), 400
 
-    # Switch back to browser
-    _activate_browser(_detect_browser(request.headers.get("User-Agent", "")))
+        # Switch back to browser
+        _activate_browser(_detect_browser(request.headers.get("User-Agent", "")))
 
-    return jsonify({
-        "success": True,
-        "image_url": f"/send/test-image/{filename}",
-        "app_name": app_name,
-    })
+        return jsonify({
+            "success": True,
+            "image_url": f"/send/test-image/{filename}",
+            "app_name": app_name,
+        })
+    except Exception as e:
+        return jsonify({"error": f"截图失败: {str(e)}"}), 500
 
 
 def _test_window_mac(app_name, filepath):
