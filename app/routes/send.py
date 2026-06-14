@@ -168,9 +168,14 @@ def _detect_browser(user_agent):
 
 def _activate_browser(browser_name=None):
     """Bring the browser back to front after sending completes."""
+    if platform.system() == "Darwin":
+        _activate_browser_mac(browser_name)
+    elif platform.system() == "Windows":
+        _activate_browser_windows(browser_name)
+
+
+def _activate_browser_mac(browser_name=None):
     import subprocess as sp
-    if platform.system() != "Darwin":
-        return
     candidates = []
     if browser_name:
         candidates.append(browser_name)
@@ -179,6 +184,42 @@ def _activate_browser(browser_name=None):
         rc = sp.call(["open", "-a", browser], timeout=3)
         if rc == 0:
             break
+
+
+def _activate_browser_windows(browser_name=None):
+    """Enumerate visible windows and bring the first matching browser to front."""
+    import ctypes
+    from ctypes import wintypes
+
+    user32 = ctypes.windll.user32
+
+    candidates = []
+    if browser_name:
+        candidates.append(browser_name)
+    candidates.extend(["Chrome", "Edge", "Firefox"])
+
+    found = []
+    WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+
+    @WNDENUMPROC
+    def callback(hwnd, lparam):
+        if user32.IsWindowVisible(hwnd):
+            length = user32.GetWindowTextLengthW(hwnd)
+            if length > 0:
+                buf = ctypes.create_unicode_buffer(length + 1)
+                user32.GetWindowTextW(hwnd, buf, length + 1)
+                title = buf.value
+                for c in candidates:
+                    if c.lower() in title.lower():
+                        found.append(hwnd)
+                        return False
+        return True
+
+    user32.EnumWindows(callback, 0)
+
+    if found:
+        user32.ShowWindow(found[0], 9)  # SW_RESTORE
+        user32.SetForegroundWindow(found[0])
 
 
 @send_bp.route("/")
