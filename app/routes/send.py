@@ -437,6 +437,11 @@ def test_window():
             return jsonify({"error": "当前系统不支持窗口测试"}), 400
 
         if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
+            if platform.system() == "Darwin":
+                return jsonify({
+                    "error": f"未能捕获 '{app_name}' 的窗口，可能是缺少屏幕录制权限",
+                    "needs_permission": True,
+                }), 400
             return jsonify({"error": f"未能捕获 '{app_name}' 的窗口，请确认应用已打开"}), 400
 
         # Switch back to browser
@@ -448,7 +453,20 @@ def test_window():
             "app_name": app_name,
         })
     except Exception as e:
-        return jsonify({"error": f"截图失败: {str(e)}"}), 500
+        hint = {}
+        if platform.system() == "Darwin":
+            hint = {"needs_permission": True}
+        return jsonify({"error": f"截图失败: {str(e)}", **hint}), 500
+
+
+@send_bp.route("/open-screen-recording", methods=["POST"])
+@api_login_required
+def open_screen_recording():
+    """Open macOS System Settings → Screen Recording permissions."""
+    if platform.system() == "Darwin":
+        import subprocess as sp
+        sp.call(["open", "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"])
+    return jsonify({"success": True})
 
 
 def _test_window_mac(app_name, filepath):

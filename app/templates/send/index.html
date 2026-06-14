@@ -287,6 +287,12 @@ async function testWindow() {
             document.getElementById('testImage').style.maxHeight = '160px';
             document.getElementById('testOk').textContent = '✓ ' + data.app_name + ' 窗口捕获成功';
             document.getElementById('testResult').classList.remove('d-none');
+        } else if (data.needs_permission) {
+            if (confirm('截图失败，需要授予屏幕录制权限。\n\n是否打开系统设置进行授权？\n\n授权后请重新点击"测试窗口"。')) {
+                await fetch('{{ url_for("send.open_screen_recording") }}', {
+                    method: 'POST', credentials: 'same-origin'
+                });
+            }
         } else {
             alert('测试失败: ' + (data.error || '未知错误'));
         }
