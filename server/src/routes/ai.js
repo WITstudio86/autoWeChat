@@ -107,7 +107,10 @@ router.post('/autocontent', (req, res) => {
       logUsage(req.teacherId, usage, 'autocontent');
       sendJson(res, { content });
     })
-    .catch((err) => sendError(res, `AI 生成失败: ${err.message}`, 502));
+    .catch((err) => {
+      console.error('[AI autocontent]', err.message);
+      sendError(res, `AI 生成失败: ${err.message}`, 502);
+    });
 });
 
 // POST /api/ai/performance
@@ -153,7 +156,10 @@ router.post('/performance', (req, res) => {
       logUsage(req.teacherId, usage, 'performance');
       sendJson(res, { content });
     })
-    .catch((err) => sendError(res, `AI 生成失败: ${err.message}`, 502));
+    .catch((err) => {
+      console.error('[AI performance]', err.message);
+      sendError(res, `AI 生成失败: ${err.message}`, 502);
+    });
 });
 
 module.exports = router;
