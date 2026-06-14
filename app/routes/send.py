@@ -181,9 +181,12 @@ def _activate_browser_mac(browser_name=None):
         candidates.append(browser_name)
     candidates.extend(["Google Chrome", "Safari", "Microsoft Edge", "Firefox"])
     for browser in candidates:
-        rc = sp.call(["open", "-a", browser], timeout=3)
-        if rc == 0:
-            break
+        try:
+            rc = sp.call(["open", "-a", browser], timeout=3)
+            if rc == 0:
+                break
+        except Exception:
+            continue
 
 
 def _activate_browser_windows(browser_name=None):
@@ -462,6 +465,8 @@ def test_window():
     if not app_name:
         return jsonify({"error": "请输入应用名称"}), 400
 
+    browser = _detect_browser(request.headers.get("User-Agent", ""))
+
     try:
         instance_path = current_app.instance_path
         test_dir = os.path.join(instance_path, "screenshots")
@@ -485,9 +490,6 @@ def test_window():
                 }), 400
             return jsonify({"error": f"未能捕获 '{app_name}' 的窗口，请确认应用已打开"}), 400
 
-        # Switch back to browser
-        _activate_browser(_detect_browser(request.headers.get("User-Agent", "")))
-
         return jsonify({
             "success": True,
             "image_url": f"/send/test-image/{filename}",
@@ -495,6 +497,12 @@ def test_window():
         })
     except Exception as e:
         return jsonify({"error": f"截图失败: {str(e)}"}), 500
+    finally:
+        # Switch back to browser (best-effort, don't affect the result)
+        try:
+            _activate_browser(browser)
+        except Exception:
+            pass
 
 
 @send_bp.route("/open-screen-recording", methods=["POST"])
@@ -520,8 +528,12 @@ def open_accessibility():
 def _test_window_mac(app_name, filepath):
     """Test screenshot on macOS using screencapture."""
     import subprocess as sp
-    sp.call(["open", "-a", app_name], timeout=5)
-    time.sleep(1.5)
+    # Best-effort: bring the target app to front, but don't fail if it's not running
+    try:
+        sp.call(["open", "-a", app_name], timeout=5)
+        time.sleep(1.5)
+    except Exception:
+        pass
     win_id, _, _ = _get_wechat_window_id(app_name)
     if win_id is not None:
         sp.call(["screencapture", "-x", "-l", str(win_id), filepath], timeout=5)
