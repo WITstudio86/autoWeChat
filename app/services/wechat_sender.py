@@ -13,6 +13,12 @@ class WeChatSendError(Exception):
     pass
 
 
+def _set_clipboard_text(text):
+    """Set clipboard text via AppleScript (more reliable than pbcopy in bundled app)."""
+    escaped = text.replace("\\", "\\\\").replace('"', '\\"')
+    _osascript(f'set the clipboard to "{escaped}"')
+
+
 def _paste_file_mac(file_path: str, base_delay: float, app_name: str = "WeChat"):
     """Copy a file to the clipboard via AppleScript and paste into WeChat."""
     r = subprocess.run(["open", "-a", app_name], capture_output=True, text=True, timeout=10)
@@ -91,14 +97,14 @@ def _mac_send(contact: str, message: str, delay_ms: int, app_name: str,
     keystroke("f", with_cmd=True)
     time.sleep(base_delay * 0.3)
 
-    pyperclip.copy(contact)
+    _set_clipboard_text(contact)
     keystroke("v", with_cmd=True)
     time.sleep(base_delay * 0.3)
 
     key_code(36)
     time.sleep(base_delay * 0.5)
 
-    pyperclip.copy(message)
+    _set_clipboard_text(message)
     keystroke("v", with_cmd=True)
     time.sleep(base_delay * 0.15)
 
