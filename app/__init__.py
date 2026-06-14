@@ -1,11 +1,12 @@
 from datetime import datetime, date
 from flask import Flask, session, request as flask_request, jsonify
-from app.config import Config, get_server_url
+from app.config import Config, get_server_url, INSTANCE_DIR
 from app.api_client import api
+import os
 
 
 def create_app(config_class=Config):
-    app = Flask(__name__)
+    app = Flask(__name__, instance_path=os.path.join(INSTANCE_DIR, "data"))
     app.config.from_object(config_class)
 
     # Init API client base URL from config
