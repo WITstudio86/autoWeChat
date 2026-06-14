@@ -32,17 +32,6 @@ function createTables() {
       FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
     );
 
-    CREATE TABLE IF NOT EXISTS courses (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      course_group_id INTEGER NOT NULL,
-      teacher_id INTEGER NOT NULL,
-      date TEXT NOT NULL,
-      status TEXT DEFAULT 'upcoming',
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (course_group_id) REFERENCES course_groups(id) ON DELETE CASCADE,
-      FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
-    );
-
     CREATE TABLE IF NOT EXISTS students (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       teacher_id INTEGER NOT NULL,
@@ -72,7 +61,6 @@ function createTables() {
       teacher_id INTEGER NOT NULL,
       student_id INTEGER,
       template_id INTEGER,
-      course_id INTEGER,
       message_content TEXT,
       status TEXT DEFAULT 'pending',
       error_message TEXT,
@@ -80,8 +68,7 @@ function createTables() {
       sent_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE,
       FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE SET NULL,
-      FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE SET NULL,
-      FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE SET NULL
+      FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE SET NULL
     );
 
     CREATE TABLE IF NOT EXISTS settings (
@@ -118,6 +105,11 @@ function createTables() {
   for (const sql of migrations) {
     try { db.exec(sql); } catch (_) { /* column already exists */ }
   }
+
+  // Migration: drop courses table (feature removed)
+  try {
+    db.exec('PRAGMA foreign_keys = OFF; DROP TABLE IF EXISTS courses; PRAGMA foreign_keys = ON;');
+  } catch (_) { /* table already gone */ }
 }
 
 module.exports = { createTables };

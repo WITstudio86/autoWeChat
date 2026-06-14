@@ -85,29 +85,3 @@ def delete(id):
         flash("删除失败", "danger")
     return redirect(url_for("courses.list"))
 
-
-@courses_bp.route("/<int:id>/calendar")
-@login_required
-def calendar(id):
-    group = api.get_group(id)
-    courses = api.list_courses(id)
-    return render_template("courses/calendar.html", group=group, courses=courses)
-
-
-@courses_bp.route("/<int:id>/generate", methods=["POST"])
-@login_required
-def generate(id):
-    weeks = int(request.form.get("weeks", 4))
-    new_courses = api.generate_courses(id, weeks=weeks)
-    flash(f"已生成 {len(new_courses)} 节新课程", "success")
-    return redirect(url_for("courses.calendar", id=id))
-
-
-@courses_bp.route("/instance/<int:id>/status", methods=["POST"])
-@login_required
-def update_status(id):
-    new_status = request.form.get("status", "upcoming")
-    if new_status in ("upcoming", "completed", "cancelled"):
-        course = api.update_course_status(id, new_status)
-        return redirect(url_for("courses.calendar", id=course["course_group_id"]))
-    return redirect(url_for("courses.list"))

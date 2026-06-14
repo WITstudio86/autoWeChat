@@ -55,6 +55,7 @@ def create_app(config_class=Config):
                     "remaining_days": remaining_days,
                     "is_expired": is_expired,
                 })(),
+                "jwt_token": session.get("jwt", ""),
                 "is_local_server": is_local_server,
                 "server_url": server_url,
             }

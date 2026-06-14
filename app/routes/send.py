@@ -119,7 +119,6 @@ def _run_send_job(job_id, teacher_name, template, students,
         log_data = {
             "student_id": student["id"],
             "template_id": template["id"],
-            "course_id": None,
             "message_content": message,
             "status": status,
             "error_message": error,

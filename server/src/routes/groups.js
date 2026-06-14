@@ -3,7 +3,7 @@ const db = require('../db/connection');
 const authMiddleware = require('../middleware/auth');
 const expireCheckMiddleware = require('../middleware/expireCheck');
 const { sendJson, sendError } = require('../utils/response');
-const { WEEKDAY_OPTIONS, WEEKDAY_MAP } = require('../utils/weekday');
+const { WEEKDAY_MAP } = require('../utils/weekday');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -14,8 +14,7 @@ function timeDisplay(row) {
 
 function groupWithCount(row) {
   const studentCnt = db.prepare('SELECT COUNT(*) as count FROM students WHERE course_group_id = ?').get(row.id);
-  const courseCnt = db.prepare('SELECT COUNT(*) as count FROM courses WHERE course_group_id = ?').get(row.id);
-  return { ...row, student_count: studentCnt.count, course_count: courseCnt.count, time_display: timeDisplay(row) };
+  return { ...row, student_count: studentCnt.count, time_display: timeDisplay(row) };
 }
 
 // GET /api/groups
@@ -52,7 +51,6 @@ router.post('/', expireCheckMiddleware, (req, res) => {
   ).run(req.teacherId, name.trim(), day_of_week, start_time, end_time);
 
   const gid = result.lastInsertRowid;
-  generateCourses(gid, req.teacherId, day_of_week, weeks_ahead || 8);
 
   const row = db.prepare('SELECT * FROM course_groups WHERE id = ?').get(gid);
   sendJson(res, groupWithCount(row), 201);
@@ -97,77 +95,5 @@ router.delete('/:id', expireCheckMiddleware, (req, res) => {
   db.prepare('DELETE FROM course_groups WHERE id = ?').run(req.params.id);
   sendJson(res, { message: '已删除' });
 });
-
-// GET /api/groups/:gid/courses
-router.get('/:gid/courses', (req, res) => {
-  const rows = db.prepare(
-    'SELECT * FROM courses WHERE course_group_id = ? AND teacher_id = ? ORDER BY date'
-  ).all(req.params.gid, req.teacherId);
-
-  sendJson(res, rows.map(r => {
-    const group = db.prepare('SELECT name FROM course_groups WHERE id = ?').get(r.course_group_id);
-    return { ...r, weekday_display: weekdayDisplay(r.date), group_name: group ? group.name : null };
-  }));
-});
-
-// POST /api/groups/:gid/courses/generate
-router.post('/:gid/courses/generate', expireCheckMiddleware, (req, res) => {
-  const group = db.prepare(
-    'SELECT * FROM course_groups WHERE id = ? AND teacher_id = ?'
-  ).get(req.params.gid, req.teacherId);
-  if (!group) return sendError(res, '分组不存在', 404);
-
-  const weeks = req.body.weeks || 4;
-  const newCourses = generateCourses(group.id, req.teacherId, group.day_of_week, weeks);
-
-  sendJson(res, newCourses.map(r => ({ ...r, weekday_display: weekdayDisplay(r.date) })), 201);
-});
-
-// ── helpers ──
-
-function weekdayDisplay(dateStr) {
-  try {
-    const d = new Date(dateStr + 'T00:00:00');
-    return WEEKDAY_OPTIONS[d.getDay() === 0 ? 6 : d.getDay() - 1];
-  } catch {
-    return '';
-  }
-}
-
-function generateCourses(groupId, teacherId, dayOfWeek, weeksAhead) {
-  const targetWd = WEEKDAY_MAP.get(dayOfWeek);
-  if (targetWd === undefined) return [];
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayDow = today.getDay() === 0 ? 6 : today.getDay() - 1;
-
-  let daysUntil = (targetWd - todayDow + 7) % 7;
-  let nextDate = new Date(today);
-  nextDate.setDate(today.getDate() + daysUntil);
-
-  const newCourses = [];
-
-  for (let i = 0; i < weeksAhead; i++) {
-    if (nextDate >= today) {
-      const dateStr = nextDate.toISOString().slice(0, 10);
-      const existing = db.prepare(
-        'SELECT id FROM courses WHERE course_group_id = ? AND date = ?'
-      ).get(groupId, dateStr);
-
-      if (!existing) {
-        const result = db.prepare(
-          'INSERT INTO courses (course_group_id, teacher_id, date, status) VALUES (?,?,?,?)'
-        ).run(groupId, teacherId, dateStr, 'upcoming');
-
-        const row = db.prepare('SELECT * FROM courses WHERE id = ?').get(result.lastInsertRowid);
-        newCourses.push(row);
-      }
-    }
-    nextDate.setDate(nextDate.getDate() + 7);
-  }
-
-  return newCourses;
-}
 
 module.exports = router;

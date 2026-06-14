@@ -82,17 +82,6 @@ class ApiClient:
     def delete_group(self, gid):
         return self._delete(f"/api/groups/{gid}")
 
-    # ── Courses ──
-
-    def list_courses(self, gid):
-        return self._get(f"/api/groups/{gid}/courses")
-
-    def generate_courses(self, gid, weeks=4):
-        return self._post(f"/api/groups/{gid}/courses/generate", {"weeks": weeks})
-
-    def update_course_status(self, cid, status):
-        return self._put(f"/api/courses/{cid}/status", {"status": status})
-
     # ── Students ──
 
     def list_students(self, group_id=None, sort="name", filter_text=""):

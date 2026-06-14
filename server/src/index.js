@@ -33,7 +33,6 @@ app.get(/^\/(?!api\/).*/, (req, res) => {
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/groups', require('./routes/groups'));
-app.use('/api/courses', require('./routes/courses'));
 app.use('/api/students', require('./routes/students'));
 app.use('/api/templates', require('./routes/templates'));
 app.use('/api/send-logs', require('./routes/sendLogs'));

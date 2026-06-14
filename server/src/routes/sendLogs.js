@@ -14,14 +14,13 @@ router.post('/', (req, res) => {
   }
 
   const result = db.prepare(
-    `INSERT INTO send_logs (teacher_id, student_id, template_id, course_id,
+    `INSERT INTO send_logs (teacher_id, student_id, template_id,
      message_content, status, error_message, screenshot_path)
-     VALUES (?,?,?,?,?,?,?,?)`
+     VALUES (?,?,?,?,?,?,?)`
   ).run(
     req.teacherId,
     student_id,
     template_id,
-    req.body.course_id || null,
     req.body.message_content || '',
     req.body.status || 'success',
     req.body.error_message || null,

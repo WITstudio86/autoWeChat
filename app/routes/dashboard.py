@@ -13,7 +13,5 @@ def index():
                           student_count=stats["student_count"],
                           group_count=stats["group_count"],
                           template_count=stats["template_count"],
-                          upcoming_courses=stats["upcoming_courses"],
-                          today_courses=stats["today_courses"],
                           recent_sends=stats["recent_sends"],
                           monthly_sends=stats["monthly_sends"])
