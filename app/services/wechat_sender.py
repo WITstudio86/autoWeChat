@@ -15,24 +15,19 @@ class WeChatSendError(Exception):
 
 def _paste_file_mac(file_path: str, base_delay: float, app_name: str = "WeChat"):
     """Copy a file to the clipboard via AppleScript and paste into WeChat."""
-    # Ensure WeChat is active before pasting
-    subprocess.run(["open", "-a", app_name])
+    r = subprocess.run(["open", "-a", app_name], capture_output=True, text=True, timeout=10)
+    if r.returncode != 0:
+        raise WeChatSendError(f"无法打开 {app_name}")
     time.sleep(0.3)
 
-    # Set clipboard to POSIX file
     escaped_path = file_path.replace("\\", "\\\\").replace('"', '\\"')
     applescript = f'set the clipboard to (POSIX file "{escaped_path}")'
-    result = subprocess.run(["osascript", "-e", applescript], capture_output=True, text=True)
+    result = subprocess.run(["osascript", "-e", applescript], capture_output=True, text=True, timeout=10)
     if result.returncode != 0:
-        print(f"[DEBUG] Clipboard set error: {result.stderr}")
+        raise WeChatSendError(f"设置剪贴板(文件)失败: {result.stderr.strip()}")
     time.sleep(base_delay * 0.3)
 
-    # Paste file into WeChat
-    subprocess.run([
-        "osascript", "-e",
-        'tell application "System Events" to keystroke "v" using command down'
-    ])
-    # Wait for WeChat to process the attachment (thumbnail generation, etc.)
+    _osascript('tell application "System Events" to keystroke "v" using command down')
     time.sleep(base_delay * 0.8)
 
 
@@ -61,36 +56,36 @@ def send_message(contact: str, message: str, delay_ms: int = 2500,
     return True
 
 
+def _osascript(script):
+    """Run an AppleScript and raise on failure."""
+    r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=15)
+    if r.returncode != 0:
+        err = r.stderr.strip() if r.stderr else f"exit code {r.returncode}"
+        if "not allowed to send keystrokes" in err.lower() or "not allowed assistive access" in err.lower():
+            raise WeChatSendError("缺少辅助功能权限，请在系统设置 > 隐私与安全性 > 辅助功能中授权")
+        raise WeChatSendError(f"AppleScript 执行失败: {err}")
+    return r
+
+
 def _mac_send(contact: str, message: str, delay_ms: int, app_name: str,
               attachments: Optional[list] = None):
     def keystroke(key, with_cmd=False):
         if with_cmd:
-            subprocess.call([
-                "osascript", "-e",
-                f'tell application "System Events" to keystroke "{key}" using command down'
-            ])
+            _osascript(f'tell application "System Events" to keystroke "{key}" using command down')
         else:
-            subprocess.call([
-                "osascript", "-e",
-                f'tell application "System Events" to keystroke "{key}"'
-            ])
+            _osascript(f'tell application "System Events" to keystroke "{key}"')
 
     def key_code(code):
-        subprocess.call([
-            "osascript", "-e",
-            f'tell application "System Events" to key code {code}'
-        ])
+        _osascript(f'tell application "System Events" to key code {code}')
 
     def cmd_enter():
-        subprocess.call([
-            "osascript", "-e",
-            'tell application "System Events" to keystroke return using command down'
-        ])
+        _osascript('tell application "System Events" to keystroke return using command down')
 
     base_delay = max(delay_ms / 1000.0, 0.3)
 
-    # open -a activates the app without restarting it
-    subprocess.call(["open", "-a", app_name])
+    r = subprocess.run(["open", "-a", app_name], capture_output=True, text=True, timeout=10)
+    if r.returncode != 0:
+        raise WeChatSendError(f"无法打开 {app_name}，请确认微信已安装且路径正确")
     time.sleep(1.0)
 
     keystroke("f", with_cmd=True)
