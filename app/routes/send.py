@@ -494,10 +494,7 @@ def test_window():
             "app_name": app_name,
         })
     except Exception as e:
-        hint = {}
-        if platform.system() == "Darwin":
-            hint = {"needs_permission": True}
-        return jsonify({"error": f"截图失败: {str(e)}", **hint}), 500
+        return jsonify({"error": f"截图失败: {str(e)}"}), 500
 
 
 @send_bp.route("/open-screen-recording", methods=["POST"])
