@@ -49,4 +49,31 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   })();
 
+  // ---- Fetch latest version from server API ----
+  (function () {
+    var macVer = document.getElementById('dlMacVersion');
+    var winVer = document.getElementById('dlWinVersion');
+    var macLink = document.getElementById('dlMacLink');
+    var winLink = document.getElementById('dlWinLink');
+
+    fetch('/api/version/latest')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !data.version) return;
+        var v = 'v' + data.version;
+        if (macVer) macVer.textContent = v;
+        if (winVer) winVer.textContent = v;
+
+        var assets = data.assets || [];
+        var macAsset = assets.find(function (a) { return a.name && a.name.indexOf('macOS') !== -1; });
+        var winAsset = assets.find(function (a) { return a.name && a.name.indexOf('windows') !== -1; });
+
+        if (macAsset && macLink) macLink.href = macAsset.browser_download_url;
+        if (winAsset && winLink) winLink.href = winAsset.browser_download_url;
+      })
+      .catch(function () {
+        // Keep default values on error
+      });
+  })();
+
 });

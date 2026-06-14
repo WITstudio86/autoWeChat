@@ -7,6 +7,20 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
+def _get_version():
+    """Read version from VERSION file bundled with the app."""
+    if getattr(sys, "frozen", False):
+        base = sys._MEIPASS  # type: ignore[attr-defined]
+    else:
+        base = os.path.dirname(os.path.abspath(__file__))
+    version_path = os.path.join(base, "VERSION")
+    try:
+        with open(version_path, "r") as f:
+            return f.read().strip()
+    except Exception:
+        return "dev"
+
+
 def _crash_log(msg):
     """Write crash info to a log file on Desktop as last-resort fallback."""
     try:
@@ -17,14 +31,46 @@ def _crash_log(msg):
         pass
 
 
+def _check_update_thread(root, current_version):
+    """Check for updates in a background thread, show dialog on main thread."""
+    try:
+        from app.update_checker import check_for_update
+    except ImportError:
+        return
+
+    import webbrowser as _wb
+
+    def _run():
+        try:
+            has_update, latest_version, download_url = check_for_update(current_version)
+            if has_update:
+                root.after(0, lambda: _on_update_found(latest_version, download_url))
+        except Exception:
+            pass
+
+    def _on_update_found(latest_version, download_url):
+        try:
+            from app.gui import show_update_dialog
+        except ImportError:
+            return
+        if show_update_dialog(root, latest_version, download_url):
+            _wb.open(download_url + "#download")
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+
+
 def main():
     try:
         from app import create_app
-        from app.gui import create_app_window
+        from app.gui import create_app_window, show_permission_guide
+        from app.config import is_first_run, mark_setup_complete
     except Exception as e:
         _crash_log(f"Import error: {traceback.format_exc()}")
         _show_fatal_error("导入模块失败", str(e))
         return
+
+    VERSION = _get_version()
 
     PORT = 5002
     SERVER_URL = f"http://127.0.0.1:{PORT}"
@@ -66,6 +112,12 @@ def main():
     def check_started():
         if flask_started.is_set():
             status_label.config(text="● 服务运行中", fg="green")
+            # First-run permission guide
+            if is_first_run():
+                mark_setup_complete()
+                root.after(500, lambda: show_permission_guide(root))
+            # Check for updates in background
+            _check_update_thread(root, VERSION)
         else:
             root.after(200, check_started)
 
@@ -77,7 +129,7 @@ def main():
     root.after(200, check_started)
     root.after(100, poll_logs)
 
-    print(f"autoWeChat 教培机构微信通知助手 v1.0")
+    print(f"autoWeChat 教培机构微信通知助手 v{VERSION}")
     print(f"管理页面: {SERVER_URL}")
     print(f"点击「关闭程序」按钮退出\n")
 

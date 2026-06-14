@@ -1,5 +1,5 @@
 from datetime import datetime, date
-from flask import Flask, session
+from flask import Flask, session, request as flask_request, jsonify
 from app.config import Config, get_server_url
 from app.api_client import api
 
@@ -97,22 +97,47 @@ def create_app(config_class=Config):
     def handle_exception(e):
         import requests as _requests
         from werkzeug.exceptions import HTTPException
+
+        def _is_api():
+            """Detect whether current request is an API/fetch call that expects JSON."""
+            try:
+                if flask_request.path.startswith('/send/'):
+                    return True
+                if flask_request.is_json:
+                    return True
+                if 'application/json' in flask_request.headers.get('Accept', ''):
+                    return True
+            except RuntimeError:
+                pass
+            return False
+
         # Let Flask handle HTTP exceptions (404, 405, etc.) properly
         if isinstance(e, HTTPException):
             return e
         if isinstance(e, _requests.ConnectionError):
+            if _is_api():
+                return jsonify({"error": "无法连接到服务器"}), 503
             return render_error("无法连接到服务器，请检查网络连接或服务器状态")
         if isinstance(e, _requests.Timeout):
+            if _is_api():
+                return jsonify({"error": "服务器请求超时"}), 504
             return render_error("服务器请求超时，请稍后重试")
         if isinstance(e, _requests.HTTPError):
             status = e.response.status_code
             if status == 401:
                 from flask import session, redirect, url_for
                 session.clear()
+                if _is_api():
+                    return jsonify({"error": "未登录或会话已过期"}), 401
                 return redirect(url_for("auth.login"))
+            if _is_api():
+                return jsonify({"error": f"服务器请求失败 (HTTP {status})"}), 502
             return render_error(f"服务器请求失败 (HTTP {status})，请稍后重试")
+        # Unhandled exception — return JSON for API routes
         import traceback
         traceback.print_exc()
+        if _is_api():
+            return jsonify({"error": "服务器内部错误"}), 500
         raise e
 
     return app

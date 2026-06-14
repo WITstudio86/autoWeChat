@@ -41,6 +41,7 @@ app.use('/api/stats', require('./routes/stats'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/ai', require('./routes/ai'));
+app.use('/api/version', require('./routes/version'));
 
 // 404
 app.use((req, res) => {

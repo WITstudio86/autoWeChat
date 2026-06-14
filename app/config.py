@@ -40,6 +40,34 @@ def save_server_url(url):
         json.dump(config, f, indent=2)
 
 
+def is_first_run():
+    """Return True if the setup wizard has not been completed."""
+    config_file = os.path.join(INSTANCE_DIR, "config.json")
+    try:
+        if os.path.exists(config_file):
+            with open(config_file, "r") as f:
+                config = json.load(f)
+            return not config.get("setup_complete", False)
+    except Exception:
+        pass
+    return True
+
+
+def mark_setup_complete():
+    """Mark the setup wizard as completed."""
+    config_file = os.path.join(INSTANCE_DIR, "config.json")
+    config = {}
+    try:
+        if os.path.exists(config_file):
+            with open(config_file, "r") as f:
+                config = json.load(f)
+    except Exception:
+        pass
+    config["setup_complete"] = True
+    with open(config_file, "w") as f:
+        json.dump(config, f, indent=2)
+
+
 class Config:
     # Handle PyInstaller frozen state: sys._MEIPASS is the temp bundle dir
     if getattr(sys, "frozen", False):

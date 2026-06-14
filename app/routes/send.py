@@ -462,14 +462,14 @@ def test_window():
     if not app_name:
         return jsonify({"error": "请输入应用名称"}), 400
 
-    instance_path = current_app.instance_path
-    test_dir = os.path.join(instance_path, "screenshots")
-    os.makedirs(test_dir, exist_ok=True)
-
-    filename = f"test_{hashlib.md5(app_name.encode()).hexdigest()[:8]}.png"
-    filepath = os.path.join(test_dir, filename)
-
     try:
+        instance_path = current_app.instance_path
+        test_dir = os.path.join(instance_path, "screenshots")
+        os.makedirs(test_dir, exist_ok=True)
+
+        filename = f"test_{hashlib.md5(app_name.encode()).hexdigest()[:8]}.png"
+        filepath = os.path.join(test_dir, filename)
+
         if platform.system() == "Darwin":
             _test_window_mac(app_name, filepath)
         elif platform.system() == "Windows":
@@ -507,6 +507,16 @@ def open_screen_recording():
     if platform.system() == "Darwin":
         import subprocess as sp
         sp.call(["open", "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"])
+    return jsonify({"success": True})
+
+
+@send_bp.route("/open-accessibility", methods=["POST"])
+@api_login_required
+def open_accessibility():
+    """Open macOS System Settings → Accessibility permissions."""
+    if platform.system() == "Darwin":
+        import subprocess as sp
+        sp.call(["open", "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"])
     return jsonify({"success": True})
 
 

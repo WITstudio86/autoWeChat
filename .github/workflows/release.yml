@@ -22,12 +22,11 @@ jobs:
       - name: Determine version
         id: ver
         run: |
-          INPUT="${{ github.event.inputs.version }}"
           TAG_REF="${{ github.ref }}"
-          if [ -n "$INPUT" ] && [ "$INPUT" != "dev" ]; then
-            V="$INPUT"
-          elif echo "$TAG_REF" | grep -q 'refs/tags/v'; then
+          if echo "$TAG_REF" | grep -q 'refs/tags/v'; then
             V=$(echo "$TAG_REF" | sed 's|refs/tags/v||')
+          elif [ -f VERSION ]; then
+            V=$(cat VERSION | tr -d '[:space:]')
           else
             V="dev"
           fi

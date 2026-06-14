@@ -1,7 +1,8 @@
 import tkinter as tk
-from tkinter import scrolledtext
+from tkinter import scrolledtext, messagebox
 import queue
 import platform
+import subprocess
 import sys
 import webbrowser
 
@@ -117,3 +118,39 @@ def create_app_window(server_url, on_quit):
     root.protocol("WM_DELETE_WINDOW", on_quit)
 
     return root, log_text, status_label, out_redir, err_redir
+
+
+def show_permission_guide(root):
+    """Show first-launch permission guide dialog on macOS.
+
+    Opens Screen Recording and Accessibility settings pages in sequence.
+    No-op on Windows.
+    """
+    if platform.system() != "Darwin":
+        return
+
+    messagebox.showinfo(
+        "首次使用 — 权限设置",
+        "首次使用需要授予两项系统权限：\n\n"
+        "1. 屏幕录制 — 用于发送微信后自动截图\n"
+        "2. 辅助功能 — 用于自动操控微信发送消息\n\n"
+        "点击「确定」后将依次打开系统设置，\n"
+        "请在对应页面中分别勾选 autoWeChat 以授权。",
+        parent=root,
+    )
+    # Open Screen Recording and Accessibility panels
+    subprocess.call([
+        "open", "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
+    ])
+    subprocess.call([
+        "open", "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+    ])
+
+
+def show_update_dialog(root, version, download_url):
+    """Show update available dialog. Returns True if user wants to download."""
+    return messagebox.askyesno(
+        "发现新版本",
+        f"发现新版本 v{version}，是否前往下载？",
+        parent=root,
+    )

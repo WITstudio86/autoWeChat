@@ -11,6 +11,7 @@ a = Analysis(
     datas=[
         (str(root / "app" / "templates"), "app/templates"),
         (str(root / "app" / "static"), "app/static"),
+        (str(root / "VERSION"), "."),
     ],
     hiddenimports=[
         "app",
@@ -32,6 +33,7 @@ a = Analysis(
         "app.services.screenshot",
         "app.services.wechat_sender",
         "app.gui",
+        "app.update_checker",
         "markupsafe",
         "jinja2.ext",
     ],
