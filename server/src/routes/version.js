@@ -3,6 +3,7 @@ const router = express.Router();
 
 const GITHUB_API = 'https://api.github.com/repos/WITstudio86/autoWeChat/releases/latest';
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
 
 let cache = null;
 let cacheTime = 0;
@@ -14,15 +15,17 @@ router.get('/latest', async (req, res) => {
       return res.json(cache);
     }
 
-    const resp = await fetch(GITHUB_API, {
-      headers: {
-        'Accept': 'application/vnd.github+json',
-        'User-Agent': 'autoWeChat-server',
-      },
-    });
+    const headers = {
+      'Accept': 'application/vnd.github+json',
+      'User-Agent': 'autoWeChat-server',
+    };
+    if (GITHUB_TOKEN) {
+      headers['Authorization'] = 'Bearer ' + GITHUB_TOKEN;
+    }
+
+    const resp = await fetch(GITHUB_API, { headers });
 
     if (!resp.ok) {
-      // Return cached data if available, otherwise error
       if (cache) return res.json(cache);
       return res.status(502).json({ error: '无法获取版本信息' });
     }

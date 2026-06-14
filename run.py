@@ -31,7 +31,7 @@ def _crash_log(msg):
         pass
 
 
-def _check_update_thread(root, current_version):
+def _check_update_thread(root, current_version, server_url):
     """Check for updates in a background thread, show dialog on main thread."""
     try:
         from app.update_checker import check_for_update
@@ -42,7 +42,7 @@ def _check_update_thread(root, current_version):
 
     def _run():
         try:
-            has_update, latest_version, download_url = check_for_update(current_version)
+            has_update, latest_version, download_url = check_for_update(current_version, server_url)
             if has_update:
                 root.after(0, lambda: _on_update_found(latest_version, download_url))
         except Exception:
@@ -64,7 +64,7 @@ def main():
     try:
         from app import create_app
         from app.gui import create_app_window, show_permission_guide
-        from app.config import is_first_run, mark_setup_complete
+        from app.config import is_first_run, mark_setup_complete, get_server_url
     except Exception as e:
         _crash_log(f"Import error: {traceback.format_exc()}")
         _show_fatal_error("导入模块失败", str(e))
@@ -74,6 +74,9 @@ def main():
 
     PORT = 5002
     SERVER_URL = f"http://127.0.0.1:{PORT}"
+
+    # Remote server URL (Node.js) for update checks
+    REMOTE_SERVER_URL = get_server_url()
 
     try:
         app = create_app()
@@ -117,7 +120,7 @@ def main():
                 mark_setup_complete()
                 root.after(500, lambda: show_permission_guide(root))
             # Check for updates in background
-            _check_update_thread(root, VERSION)
+            _check_update_thread(root, VERSION, REMOTE_SERVER_URL)
         else:
             root.after(200, check_started)
 

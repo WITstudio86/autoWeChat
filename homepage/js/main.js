@@ -49,52 +49,36 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   })();
 
-  // ---- Fetch latest version ----
+  // ---- Fetch latest version from server API ----
   (function () {
     var macVer = document.getElementById('dlMacVersion');
     var winVer = document.getElementById('dlWinVersion');
     var macLink = document.getElementById('dlMacLink');
     var winLink = document.getElementById('dlWinLink');
 
-    var GITHUB_API = 'https://api.github.com/repos/WITstudio86/autoWeChat/releases/latest';
-
-    function applyData(data) {
-      if (!data || !data.version) return;
-      var v = 'v' + data.version;
-      if (macVer) macVer.textContent = v;
-      if (winVer) winVer.textContent = v;
-
-      var assets = data.assets || [];
-      function pickAsset(keyword) {
-        var exact = assets.find(function (a) { return a.name === 'autoWeChat-' + keyword + '.zip'; });
-        if (exact) return exact;
-        return assets.find(function (a) { return a.name && a.name.indexOf(keyword) !== -1; });
-      }
-
-      var macAsset = pickAsset('macOS');
-      var winAsset = pickAsset('windows');
-
-      if (macAsset && macLink) macLink.href = macAsset.browser_download_url;
-      if (winAsset && winLink) winLink.href = winAsset.browser_download_url;
-    }
-
-    function parseGitHubRelease(data) {
-      var version = (data.tag_name || '').replace(/^v/, '');
-      var assets = (data.assets || []).map(function (a) {
-        return { name: a.name, browser_download_url: a.browser_download_url, size: a.size };
-      });
-      return { version: version, assets: assets };
-    }
-
-    // Try server API first (fast, cached), fallback to GitHub API directly
     fetch('/api/version/latest')
       .then(function (r) { return r.json(); })
-      .then(applyData)
+      .then(function (data) {
+        if (!data || !data.version) return;
+        var v = 'v' + data.version;
+        if (macVer) macVer.textContent = v;
+        if (winVer) winVer.textContent = v;
+
+        var assets = data.assets || [];
+        function pickAsset(keyword) {
+          var exact = assets.find(function (a) { return a.name === 'autoWeChat-' + keyword + '.zip'; });
+          if (exact) return exact;
+          return assets.find(function (a) { return a.name && a.name.indexOf(keyword) !== -1; });
+        }
+
+        var macAsset = pickAsset('macOS');
+        var winAsset = pickAsset('windows');
+
+        if (macAsset && macLink) macLink.href = macAsset.browser_download_url;
+        if (winAsset && winLink) winLink.href = winAsset.browser_download_url;
+      })
       .catch(function () {
-        return fetch(GITHUB_API, { headers: { 'Accept': 'application/vnd.github+json' } })
-          .then(function (r) { return r.json(); })
-          .then(function (data) { applyData(parseGitHubRelease(data)); })
-          .catch(function () { /* keep defaults */ });
+        // Keep default GitHub latest-download URLs
       });
   })();
 
