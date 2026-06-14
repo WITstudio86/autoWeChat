@@ -8,9 +8,9 @@ def generate_autocontent(description: str) -> str:
 
     try:
         result = api.generate_autocontent(description)
-        return result.get("content", "[AI 返回为空]")
-    except Exception as e:
-        return f"[AI生成失败: {str(e)}]"
+        return result.get("content", "")
+    except Exception:
+        return ""
 
 
 def generate_performance(student_name: str, notes: str, course_context: str = "") -> str:
@@ -20,6 +20,6 @@ def generate_performance(student_name: str, notes: str, course_context: str = ""
 
     try:
         result = api.generate_performance(student_name, notes, course_context)
-        return result.get("content", "[AI 返回为空]")
-    except Exception as e:
-        return f"[AI生成失败: {str(e)}]"
+        return result.get("content", "")
+    except Exception:
+        return ""

@@ -361,7 +361,11 @@ function updateSelectedCount() {
     const hasTemplate = !!document.getElementById('templateSelect').value;
     const canAct = count > 0 && hasTemplate;
     document.getElementById('generateBtn').disabled = !canAct;
-    document.getElementById('sendBtn').disabled = !canAct;
+    const sendBtn = document.getElementById('sendBtn');
+    if (sendBtn.classList.contains('btn-success') || sendBtn.classList.contains('btn-warning')) {
+        resetSendBtn();
+    }
+    sendBtn.disabled = !canAct;
 }
 
 function updatePreview() {
@@ -377,7 +381,11 @@ function updatePreview() {
     const hasTemplate = !!templateOpt;
     const canAct = hasTemplate && document.querySelectorAll('.student-check:checked').length > 0;
     document.getElementById('generateBtn').disabled = !canAct;
-    document.getElementById('sendBtn').disabled = !canAct;
+    const sendBtn2 = document.getElementById('sendBtn');
+    if (sendBtn2.classList.contains('btn-success') || sendBtn2.classList.contains('btn-warning')) {
+        resetSendBtn();
+    }
+    sendBtn2.disabled = !canAct;
 
     const preview = document.getElementById('sendPreview');
     if (!templateOpt) {
