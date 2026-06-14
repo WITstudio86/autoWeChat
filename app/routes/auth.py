@@ -1,6 +1,7 @@
-from flask import Blueprint, render_template, redirect, url_for, request, flash, session
+from flask import Blueprint, render_template, redirect, url_for, request, flash, session, jsonify
 from app.api_client import api
 from app.middleware import login_required
+from app.config import get_server_url, save_server_url
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -97,3 +98,23 @@ def settings():
         return redirect(url_for("auth.settings"))
 
     return render_template("auth/settings.html", settings=user_settings)
+
+
+@auth_bp.route("/local-config", methods=["GET"])
+def local_config_get():
+    """Return current server URL preference."""
+    url = get_server_url()
+    is_local = "localhost" in url or "127.0.0.1" in url
+    return jsonify({"server_url": url, "is_local": is_local})
+
+
+@auth_bp.route("/local-config", methods=["POST"])
+def local_config_set():
+    """Update server URL preference and apply immediately."""
+    data = request.get_json() or {}
+    url = data.get("server_url", "").strip()
+    if not url:
+        return jsonify({"error": "缺少 server_url"}), 400
+    save_server_url(url)
+    api.set_base_url(url)
+    return jsonify({"success": True, "server_url": url})

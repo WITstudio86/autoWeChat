@@ -57,6 +57,15 @@
                     {% endif %}
                 </ul>
                 <ul class="navbar-nav">
+                    <li class="nav-item d-flex align-items-center me-2">
+                        <a href="{{ url_for('auth.settings') }}"
+                           class="text-decoration-none small server-indicator"
+                           title="点击切换服务器">
+                            <span class="badge {{ 'bg-warning text-dark' if is_local_server else 'bg-success' }}">
+                                {{ '● 本地' if is_local_server else '● 云端' }}
+                            </span>
+                        </a>
+                    </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                             <i class="bi bi-person-circle"></i> {{ current_user.display_name or current_user.username }}

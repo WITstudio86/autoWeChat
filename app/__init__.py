@@ -1,6 +1,6 @@
 from datetime import datetime, date
 from flask import Flask, session
-from app.config import Config
+from app.config import Config, get_server_url
 from app.api_client import api
 
 
@@ -31,9 +31,12 @@ def create_app(config_class=Config):
         except (ValueError, AttributeError):
             return str(value)
 
-    # Context processor: inject current_user from session for template compatibility
+    # Context processor: inject current_user and server status for templates
     @app.context_processor
     def inject_user():
+        server_url = get_server_url()
+        is_local_server = "localhost" in server_url or "127.0.0.1" in server_url
+
         teacher = session.get("teacher")
         if teacher:
             expire_at = teacher.get("expire_at")
@@ -50,7 +53,9 @@ def create_app(config_class=Config):
                     "expire_at": expire_at,
                     "remaining_days": remaining_days,
                     "is_expired": is_expired,
-                })()
+                })(),
+                "is_local_server": is_local_server,
+                "server_url": server_url,
             }
         return {
             "current_user": type("AnonProxy", (), {
@@ -63,7 +68,9 @@ def create_app(config_class=Config):
                 "expire_at": None,
                 "remaining_days": None,
                 "is_expired": False,
-            })()
+            })(),
+            "is_local_server": is_local_server,
+            "server_url": server_url,
         }
 
     # Register blueprints

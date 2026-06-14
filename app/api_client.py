@@ -10,6 +10,10 @@ class ApiClient:
     def __init__(self, base_url=None):
         self._base_url = base_url
 
+    def set_base_url(self, url):
+        """Update the server base URL at runtime."""
+        self._base_url = url
+
     @property
     def base_url(self):
         if self._base_url:

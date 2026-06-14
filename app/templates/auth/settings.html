@@ -5,6 +5,31 @@
     <div class="col-md-6 col-lg-5">
         <h4 class="mb-3">个人设置</h4>
 
+        {# Server URL Switch #}
+        <div class="card shadow-sm mb-3 border-info">
+            <div class="card-header"><i class="bi bi-cloud"></i> 服务器地址</div>
+            <div class="card-body">
+                <div class="btn-group w-100" role="group">
+                    <input type="radio" class="btn-check" name="serverUrl" id="serverRemote"
+                           value="https://wechat.zelab.top" autocomplete="off"
+                           onchange="switchServer('https://wechat.zelab.top')">
+                    <label class="btn btn-outline-primary" for="serverRemote">
+                        <i class="bi bi-cloud-upload"></i> 云端服务器<br>
+                        <small class="text-muted">wechat.zelab.top</small>
+                    </label>
+
+                    <input type="radio" class="btn-check" name="serverUrl" id="serverLocal"
+                           value="http://localhost:3004" autocomplete="off"
+                           onchange="switchServer('http://localhost:3004')">
+                    <label class="btn btn-outline-warning" for="serverLocal">
+                        <i class="bi bi-pc-display"></i> 本地开发<br>
+                        <small class="text-muted">localhost:3004</small>
+                    </label>
+                </div>
+                <div id="serverSwitchMsg" class="mt-2 small" style="display:none;"></div>
+            </div>
+        </div>
+
         <form method="POST">
             <div class="card shadow-sm mb-3">
                 <div class="card-header"><i class="bi bi-person"></i> 基本设置</div>
@@ -69,5 +94,38 @@
     const formTextEl = document.getElementById('appNameFormText');
     if (formTextEl) formTextEl.textContent = (isMac ? 'macOS ' : 'Windows ') + '应用程序名称，用于自动操控和截图的窗口目标';
 })();
+
+// Pre-select current server
+(function() {
+    const isLocal = {{ 'true' if is_local_server else 'false' }};
+    document.getElementById(isLocal ? 'serverLocal' : 'serverRemote').checked = true;
+    document.querySelector('label[for="' + (isLocal ? 'serverLocal' : 'serverRemote') + '"]')
+        .classList.add('active');
+})();
+
+async function switchServer(url) {
+    try {
+        const resp = await fetch('/auth/local-config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ server_url: url }),
+        });
+        const data = await resp.json();
+        const msg = document.getElementById('serverSwitchMsg');
+        msg.style.display = 'block';
+        if (resp.ok) {
+            msg.className = 'mt-2 small alert alert-success';
+            msg.innerHTML = '服务器地址已更新，<a href="javascript:location.reload()" class="alert-link">点击刷新页面</a>生效';
+        } else {
+            msg.className = 'mt-2 small alert alert-danger';
+            msg.textContent = '设置失败: ' + (data.error || '未知错误');
+        }
+    } catch (e) {
+        const msg = document.getElementById('serverSwitchMsg');
+        msg.style.display = 'block';
+        msg.className = 'mt-2 small alert alert-danger';
+        msg.textContent = '网络错误: ' + e.message;
+    }
+}
 </script>
 {% endblock %}
