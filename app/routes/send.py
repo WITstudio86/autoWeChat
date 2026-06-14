@@ -528,12 +528,12 @@ def open_accessibility():
 def _test_window_mac(app_name, filepath):
     """Test screenshot on macOS using screencapture."""
     import subprocess as sp
-    # Best-effort: bring the target app to front, but don't fail if it's not running
+    # Best-effort: bring the target app to front (may time out, app might already be open)
     try:
         sp.call(["open", "-a", app_name], timeout=5)
-        time.sleep(1.5)
     except Exception:
         pass
+    time.sleep(1.5)
     win_id, _, _ = _get_wechat_window_id(app_name)
     if win_id is not None:
         sp.call(["screencapture", "-x", "-l", str(win_id), filepath], timeout=5)
