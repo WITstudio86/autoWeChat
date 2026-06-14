@@ -133,6 +133,9 @@ def _run_send_job(job_id, teacher_name, template, students,
         job["completed_count"] += 1
         if status == "failed":
             job["failed_count"] += 1
+            if "errors" not in job:
+                job["errors"] = []
+            job["errors"].append({"student_name": student["name"], "error": error})
 
         time.sleep(0.5)
 
@@ -436,6 +439,7 @@ def status(job_id):
         "status": job["status"],
         "current": job["current_student"] or "",
         "stitched_available": bool(job.get("stitched_path")),
+        "errors": job.get("errors", []),
     })
 
 
