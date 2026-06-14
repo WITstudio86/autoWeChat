@@ -6,9 +6,9 @@
 
 | 组件 | 说明 |
 |------|------|
-| **桌面客户端** (macOS / Windows) | 教师本地运行，通过 AppleScript/pyautogui 操控微信发送消息 |
+| **桌面客户端** (macOS / Windows) | 教师本地运行，通过 AppleScript/pyautogui 操控微信发送消息。默认连接 `https://wechat.zelab.top`，可在设置页切换到本地服务器 |
 | **云端服务端** (Linux) | Node.js + Express + SQLite，提供 REST API + JWT 认证 |
-| **产品主页** | 静态页面，与服务端同域名，访问 `https://autowechat.你的域名.com/` |
+| **产品主页** | 静态页面，与服务端同域名，访问 `https://wechat.zelab.top/` |
 
 ---
 
@@ -17,7 +17,7 @@
 通过 GitHub Actions 统一构建：
 
 ```bash
-git tag v1.0.0 && git push origin v1.0.0
+git tag v1.0.2 && git push origin v1.0.2
 ```
 
 CI 三平台并行构建（约 5-8 分钟），产物挂在 [GitHub Releases](https://github.com/WITstudio86/autoWeChat/releases)。
@@ -102,7 +102,7 @@ EOF
 
 | 配置项 | 值 |
 |--------|-----|
-| 主域名 | `autowechat.你的域名.com` |
+| 主域名 | `wechat.zelab.top` |
 | 代理地址 | `http://127.0.0.1:3004` |
 
 创建后点进网站 → **配置** → **配置文件**，在 `location /` 块加：
@@ -118,7 +118,7 @@ proxy_buffering off;
 
 ### 7. 验证
 
-浏览器访问 `https://autowechat.你的域名.com/`，应该看到产品首页。
+浏览器访问 `https://wechat.zelab.top/`，应该看到产品首页。
 
 ### 8. 数据库备份
 
@@ -140,7 +140,17 @@ scp autoWeChat-macOS.zip root@<服务器IP>:/opt/autowechat/homepage/download/
 scp autoWeChat-windows.zip root@<服务器IP>:/opt/autowechat/homepage/download/
 ```
 
-用户通过 `https://autowechat.你的域名.com/download/` 下载。
+用户通过 `https://wechat.zelab.top/download/` 下载。
+
+### 客户端服务器切换
+
+客户端默认连接 `https://wechat.zelab.top`。如需连接本地开发服务器：
+
+1. 打开客户端 → 右上角齿轮进入**设置**页面
+2. 在"服务器地址"卡片中切换为**本地开发** (`http://localhost:3004`)
+3. 刷新页面即可生效
+
+切换的偏好保存在 `~/.autoWeChat/config.json`，重启客户端不会丢失。也可通过环境变量 `SERVER_BASE_URL` 覆盖（开发调试用）。
 
 ### macOS 首次运行
 
